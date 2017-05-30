@@ -1,0 +1,35 @@
+{
+  "extends": "airbnb",
+  "env": {
+    "browser": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 8,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "rules": {
+    "linebreak-style": ["error", "windows"],
+    "indent": [2, 2],
+    "comma-dangle": ["error", "never"],
+    "no-plusplus": 0,
+    "func-names": 0,
+    "arrow-body-style": ["error", "as-needed"],
+    "no-param-reassign": 0,
+    "space-before-function-paren": 0,
+    "no-underscore-dangle": 0,
+    "default-case": ["error", { "commentPattern": "^skip\\sdefault" }],
+    "react/forbid-prop-types": 0,
+    "react/no-find-dom-node": 0,
+    "react/no-multi-comp": 0,
+    "jsx-a11y/href-no-hash": 0,
+    "jsx-a11y/no-static-element-interactions": 0
+  },
+  "plugins": [
+    "react",
+    "jsx-a11y",
+    "import"
+  ]
+}
