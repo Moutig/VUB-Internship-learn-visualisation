@@ -1,8 +1,8 @@
 import * as d3 from 'd3';
 // import _ from 'lodash';
 import $ from 'jquery';
-
 import './style/style.scss';
+import d3_radial from 'd3-radial';
 
 const svg = d3.select('#app').append('svg')
             .attr('width', 960)
@@ -18,8 +18,43 @@ const g = svg
             .append('g')
             .attr('transform', `translate(${margin.left},${margin.top})`);
 
-const photoContainer = d3.select('.container').append('ul')
-                        .attr('id', 'rudr_instafeed');
+const makeViz = (data) => {
+  var radial = d3_radial.radial()
+  .center([500, 400])
+  .size([120, 120]);
+
+  svg.selectAll('circle')
+  .data(radial(data)).enter()
+  .append("circle")
+  .attr("cx", function(d) { return d.x; })
+  .attr("cy", function(d) { return d.y; })
+  .attr("r", 20)
+  .attr("fill", "#228822")
+  .on('mouseover', function(d) {
+    d3.select(this).style('fill', '#143245');
+    console.log(d);
+    })
+  .on('mouseout', function(){
+    d3.select(this).style('fill', '#228822')
+  })
+};
+
+
+/*  matchTags.done((rawData) => {
+    rawData.items.forEach((relatedImg) => {
+      const tmpStringTagsArray = relatedImg.tags.split(' ');
+      tmpStringTagsArray.forEach((stringTag) => {
+        if (relatedTagsArray.indexOf(stringTag) === -1) {
+          const tagItem = { tag: stringTag };
+          relatedTagsArray.push(tagItem);
+        }
+      });
+    });
+  });
+
+  matchTags.fail(() => {
+    console.log('No tags match');
+  });*/
 
 const token = '2004513296.1677ed0.7712065e2d5a4ab79aac2e8c9df4cf91';
 const numPhotos = 30;
@@ -33,36 +68,43 @@ const loadInformation = $.ajax({
 
 loadInformation.done((rawData) => {
   const dataArray = [];
-  const relatedTags = [];
+  const originalTagsArray = [];
+  const tagDateArray = [];
   rawData.data.forEach((img) => {
     const arrayTags = img.tags;
     const realDate = new Date(img.created_time * 1000);
-    dataArray.push([arrayTags, realDate]);
     arrayTags.forEach((tag) => {
-      findMatchTags(tag, relatedTags);
+      originalTagsArray.push(tag);
+      tagDateArray.push(realDate);
     });
   });
-  console.log(dataArray);
+  const findMatchTags = $.map(originalTagsArray, (tag) => {
+    return $.ajax({
+      type: 'GET',
+      dataType: 'jsonp',
+      url: 'http://api.flickr.com/services/feeds/photos_public.gne',
+      data: 'tags=' + tag + '&tagmode=any&format=json&jsoncallback=?'
+    });
+  });
+  $.when(...findMatchTags).done(function() {
+    for (let i = 0; i < arguments.length; i++) {
+      const relatedTagsArray = [];
+      arguments[i][0].items.forEach((photos) => {
+        const tmpStringTagsArray = photos.tags.split(' ');
+        tmpStringTagsArray.forEach((stringTag) => {
+          if (relatedTagsArray.indexOf(stringTag) === -1){
+            relatedTagsArray.push(stringTag);
+          }
+        });
+      });
+      const tagObject = { tag: originalTagsArray[i], date: tagDateArray[i], relatedTags: relatedTagsArray };
+      dataArray.push(tagObject);
+    }
+    window.onload = makeViz(dataArray);
+  });
   console.log('Information are loaded!');
 });
 
 loadInformation.fail(() => {
   console.log("Information aren't loaded");
 });
-
-function findMatchTags(tag, arrayTags) {
-  const matchTags = $.ajax({
-    type: 'GET',
-    dataType: 'jsonp',
-    url: 'http://api.flickr.com/services/feeds/photos_public.gne',
-    data: 'tags=' + tag + '&tagmode=any&format=json&lang=fr-fr&jsoncallback=?'
-  });
-
-  matchTags.done((rawData) => {
-    console.log(rawData);
-  });
-
-  loadInformation.fail(() => {
-    console.log('No tags match');
-  });
-}
