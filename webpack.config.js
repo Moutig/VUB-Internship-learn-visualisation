@@ -21,7 +21,7 @@ loaders.push({
   {
     test: /\.scss$/,
   // exclude: /[\/\\]src[\/\\]/,
-    include: /[/\\](layouts)[/\\]/,
+      exclude: /[\/\\]node_modules[\/\\]/,
     loaders: [
       "style-loader?sourceMap",
       "css-loader",
@@ -29,17 +29,6 @@ loaders.push({
     ]
   },
   // local scss modules
-  {
-    test: /\.scss$/,
-    // include: /[/\\]()[/\\]/,
-  exclude: /[\/\\]node_modules[\/\\]/,
-    loaders: [
-      "style-loader?sourceMap",
-      "css-loader?modules&importLoaders=1&localIdentName=[path]___[name]__[local]___[hash:base64:5]",
-      // "postcss-loader",
-      "sass-loader"
-    ]
-  },
   {
     test: /bootstrap\/dist\/js\/umd\//,
     loader: "imports-loader?jQuery=jquery"

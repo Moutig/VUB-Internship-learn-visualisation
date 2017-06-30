@@ -1,21 +1,34 @@
-// body {
-//   background: yellow;
-// }
-//
-.domain {
-  stroke: grey;
-}
-
-.grid .tick {
-    stroke: lightgrey;
-    opacity: 0.2;
-}
-
-.grid path {
-      stroke-width: 0;
-}
-
 svg {
   display : block;
   margin : auto;
+  position : absolute;
+}
+
+.tick text {
+  font: 14px "Comic Sans MS";
+  fill: green;
+}
+
+.xaxis line,
+.xaxis path {
+  fill: green;
+  border-color: white;
+  stroke: #fff;
+  shape-rendering: crispEdges;
+}
+
+.xaxis .tick line {
+  stroke:green;
+}
+
+circle.ring {
+  fill: none;
+  stroke: black;
+  stroke-width: 1px;
+  stroke-opacity: .15;
+  stroke-dasharray: .5;
+}
+
+#app {
+  position : relative;
 }

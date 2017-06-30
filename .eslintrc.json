@@ -16,7 +16,7 @@
     "comma-dangle": ["error", "never"],
     "no-plusplus": 0,
     "func-names": 0,
-    "arrow-body-style": ["error", "as-needed"],
+    "arrow-body-style": ["error", "always"],
     "no-param-reassign": 0,
     "space-before-function-paren": 0,
     "no-underscore-dangle": 0,
