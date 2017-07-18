@@ -24,13 +24,16 @@ const makeViz = (data) => {
                 .attr('height', window.innerHeight - 35);
 
   const margin = { top: 60, right: 0, bottom: 20, left: 0 };
+
   const width = +svg.attr('width') - margin.left - margin.right;
+
   const height = +svg.attr('height') - margin.top - margin.bottom;
+
   let active = d3.select(null);
 
   function zoomed() {
-    svg.style('stroke-width', (1 / d3.event.transform.k) + 'px');
-    svg.attr('transform', d3.event.transform); // updated for d3 v4
+    svg.style('stroke-width', `${1 / d3.event.transform.k}px`);
+    svg.attr('transform', d3.event.transform);
   }
 
   const zoom = d3.zoom()
@@ -50,7 +53,9 @@ const makeViz = (data) => {
             .attr('transform', `translate(${margin.left},${margin.top})`);
 
   const xDomain = d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
+
   const dateFormat = d3.timeFormat('%Y');
+
   const dateFormatMonth = d3.timeFormat('%B%Y');
 
   const xScale = d3.scaleTime()
@@ -62,10 +67,11 @@ const makeViz = (data) => {
     .ticks(d3.timeYear)
     .tickFormat(dateFormat);
 
-  const dotSize = height / (d3.timeYear.count(new Date(Date.parse(nestedData[nestedData.length - 1].key)),
-  new Date(Date.parse(nestedData[0].key))) * 4.5);
+  const dotSize = height /
+    (d3.timeYear.count(new Date(Date.parse(nestedData[nestedData.length - 1].key)),
+    new Date(Date.parse(nestedData[0].key))) * 4.5);
 
-  const arc = d3.arc()
+  /* const arc = d3.arc()
     .innerRadius((width/200))
     .outerRadius((width/300))
     .startAngle(0)
@@ -75,20 +81,21 @@ const makeViz = (data) => {
     .attr('id', 'arc')
     .attr('d', arc)
     .style('display', 'none');
+*/
 
   g.attr('class', 'xaxis')
-    .attr('transform', 'translate(' + ((width / 2) + 3) + ',0)')
+    .attr('transform', `translate(${((width / 2) + 3)},0)`)
     .call(xMonthsAxis);
 
   g.selectAll('.xaxis text')
     .attr('transform', function() {
-      return 'translate(' + ((this.getBBox().height * (-0.5) - (dotSize * 2))) + ',0) rotate(20)';
+      return `translate(${(((this.getBBox().height * (-0.5)) - (dotSize * 2)))},0) rotate(20)`;
     })
     .attr('class', 'ticktext');
 
   g.selectAll('.tick')
     .append('text')
-      .attr('id',function(d) {
+      .attr('id', (d) => {
         return dateFormatMonth(d);
       })
       .attr('class', 'curvedtext')
@@ -97,7 +104,7 @@ const makeViz = (data) => {
     .attr('xlink:href', '#arc')
     .style('text-anchor', 'middle')
     .attr('startOffset', '28%')
-    .text(function(d) {
+    .text((d) => {
       return dateFormat(d);
     });
 
@@ -106,20 +113,20 @@ const makeViz = (data) => {
     .enter()
     .append('g')
     .attr('class', 'circleContainer')
-    .attr('year', function(d) {
+    .attr('year', (d) => {
       return dateFormat(new Date(d.key));
     });
 
   circleContainer.append('circle')
-    .attr('id', function(d) {
+    .attr('id', (d) => {
       return dateFormatMonth(Date.parse(d.key));
     })
     .attr('class', 'yearPoint')
-    .attr('r', function() {
+    .attr('r', () => {
       return dotSize;
     })
-    .attr('cx', (width/2))
-    .attr('cy', function(d) {
+    .attr('cx', (width / 2))
+    .attr('cy', (d) => {
       return xScale(new Date(Date.parse(d.key)));
     })
     .attr('fill', 'white')
@@ -146,7 +153,8 @@ const makeViz = (data) => {
       } else {
         active.classed('active', false);
         active = d3.select(this).classed('active', true);
-        const translate = [((width / 2) - (scale * x)), (height / 2) - (y * scale) + (margin.top / 2)];
+        const translate = [((width / 2) - (scale * x)),
+          ((height / 2) - (y * scale)) + (margin.top / 2)];
         svg.transition()
           .duration(800)
           .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
@@ -164,65 +172,58 @@ const makeViz = (data) => {
       }
     });
 
-    const cloudContainer = circleContainer.append('g')
-      .attr('class', 'wordcloudContainer')
-      .attr('year', function(d) {
-        console.log(d)
-        return dateFormat(new Date(d.key));
-      })
-      .attr('transform', function (d) {
-        return 'translate(' + (width / 2)+ ', ' + xScale(new Date(Date.parse(d.key))) + ')';
-      });
+  const cloudContainer = circleContainer.append('g')
+    .attr('class', 'wordcloudContainer')
+    .attr('year', (d) => {
+      return dateFormat(new Date(d.key));
+    })
+    .attr('transform', (d) => {
+      return `translate(${(width / 2)},${xScale(new Date(Date.parse(d.key)))})`;
+    });
 
-  const radialData = nestedData.map(function (d) {
+  const radialData = nestedData.map((d) => {
     const radial = d3radial.radial()
       .center([(width / 2), xScale(new Date(Date.parse(d.key)))])
       .size([dotSize + 18, dotSize + 18]);
-    return radial(d.values)
+    return radial(d.values);
   });
 
   const imageWidth = 5;
   const imageHeight = 5;
 
-  const collide = d3collide(function (d) {
-    return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]]
+  const collide = d3collide(() => {
+    return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]];
   })
     .strength(0.25)
-    .iterations(5)
+    .iterations(5);
 
-  const color = d3.scaleOrdinal(d3.schemeCategory20b)
+  const color = d3.scaleOrdinal(d3.schemeCategory20b);
 
   const concatRadialData = [];
 
   radialData.forEach((d) => {
     d.forEach((d2) => {
       concatRadialData.push(d2);
-    })
-  })
-
-  d3.forceSimulation(concatRadialData)
-    .velocityDecay(0.6)
-    .force('collide', collide)
-    .on('tick', updateNetwork);
-
+    });
+  });
 
   const circle = svg.selectAll('.circleContainer')
-  .append('g')
-  .attr('class', 'pictures')
-  .selectAll('.pictures')
-  .data(radialData);
+    .append('g')
+    .attr('class', 'pictures')
+    .selectAll('.pictures')
+    .data(radialData);
 
   const circleEnter = circle.enter();
 
   const image = circleEnter.selectAll('image.base')
-  .data(function (d) {
+  .data((d) => {
     return d;
   });
 
   const imageEnter = image.enter()
   .append('image')
     .attr('class', 'base')
-    .attr('xlink:href', function (d) {
+    .attr('xlink:href', (d) => {
       return d.key;
     })
     .attr('width', 10)
@@ -231,8 +232,13 @@ const makeViz = (data) => {
   const imageEnterUpdate = image.merge(imageEnter);
   function updateNetwork() {
     imageEnterUpdate
-      .attr('transform', function (d) { return 'translate(' + (d.x - imageWidth) + ',' + (d.y - imageHeight) + ')'; });
+      .attr('transform', (d) => { return `translate(${(d.x - imageWidth)},${(d.y - imageHeight)})`; });
   }
+
+  d3.forceSimulation(concatRadialData)
+    .velocityDecay(0.6)
+    .force('collide', collide)
+    .on('tick', updateNetwork);
 
   const wordsArray = [];
   radialData.forEach((c) => {
@@ -241,15 +247,14 @@ const makeViz = (data) => {
     c.forEach((d) => {
       d.values.forEach((d2) => {
         tmpYear = dateFormat(d2.date);
-        tmpArray.push({ tag: d2.relatedTag, frequency: d2.frequency, image: d2.image});
+        tmpArray.push({ tag: d2.relatedTag, frequency: d2.frequency, image: d2.image });
       });
     });
-    console.log(tmpArray)
     tmpArray = tmpArray.slice(0, 15);
-    wordsArray.push({ words: tmpArray, date: tmpYear })
-  })
+    wordsArray.push({ words: tmpArray, date: tmpYear });
+  });
 
-  cloudContainer.each(function(d) {
+  cloudContainer.each(function () {
     const self = d3.select(this);
     const year = d3.select(this).attr('year');
     let tmpArray = null;
@@ -260,41 +265,36 @@ const makeViz = (data) => {
     });
 
     const layout = d3cloud()
-      .size([dotSize * 1.8, dotSize * 1.8])
-      .words(tmpArray.map(function(w) {
+      .size([dotSize * 1.9, dotSize * 2])
+      .words(tmpArray.map((w) => {
         return { text: w.tag, size: dotSize / (tmpArray.length) };
       }))
-      .rotate(function() { return 0; })
-      .fontSize(function(d) { return 6; })
-      .padding(1)
+      .rotate(() => { return 0; })
+      .fontSize(() => { return 5; })
+      .padding(0.6)
       .spiral('rectangular')
-      .on("end", function (d){
-        return draw(d, self)
-      })
+      .on('end', (words) => {
+        self.selectAll('text')
+          .data(words)
+          .enter()
+          .append('text')
+          .style('font-size', () => { return `${5}px`; })
+          .style('font-family', 'Comic Sans MS')
+          .style('fill', (d, i) => { return color(i); })
+          .attr('text-anchor', 'middle')
+          .attr('transform', (d) => {
+            return `translate(${[d.x * 0.9, d.y * 0.9]}) rotate(${d.rotate})`;
+          })
+          .text((d) => {
+            if (d.text.length > 8) {
+              return `${d.text.substring(0, 8)}...`;
+            }
+            return d.text;
+          });
+      });
 
     layout.start();
   });
-
-  function draw(words, self) {
-    self.selectAll('text')
-      .data(words)
-      .enter()
-      .append('text')
-      .style("font-size", function(d) { return 6 + "px"; })
-      .style("font-family", "Comic Sans MS")
-      .style("fill", function(d, i) { return color(i); })
-      .attr("text-anchor", "middle")
-      .attr("transform", function(d) {
-        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
-      })
-      .text(function(d) {
-        if (d.text.length > 8) {
-          return d.text.substring(0, 8) + '...';
-        } else {
-          return d.text;
-        }
-      });
-  }
 };
 
 const token = '2004513296.1677ed0.7712065e2d5a4ab79aac2e8c9df4cf91';
@@ -322,30 +322,30 @@ loadInformation.done((rawData) => {
         date: realDate,
         image: img.images.standard_resolution.url,
         frequency: 1
-      })
+      });
     });
   });
+
   const findMatchTags = $.map(originalTagsArray, (tag) => {
     return $.ajax({
       type: 'GET',
       dataType: 'jsonp',
       url: 'http://api.flickr.com/services/feeds/photos_public.gne',
-      data: 'tags=' + tag + '&tagmode=any&format=json&jsoncallback=?'
+      data: `tags=${tag}&tagmode=any&format=json&jsoncallback=?`
     });
   });
   $.when(...findMatchTags).done(function() {
     for (let i = 0; i < arguments.length; i++) {
       arguments[i][0].items.forEach((photos) => {
-        console.log(photos)
         const tmpStringTagsArray = photos.tags.split(' ');
         tmpStringTagsArray.forEach((stringTag) => {
-          const result = dataArray.filter(function(obj) {
+          const result = dataArray.filter((obj) => {
             return obj.relatedTag === stringTag;
           });
           if (result.length > 0) {
             dataArray.forEach((obj) => {
               obj.frequency++;
-            })
+            });
           } else {
             dataArray.push({
               relatedTag: stringTag,
@@ -357,7 +357,7 @@ loadInformation.done((rawData) => {
         });
       });
     }
-    window.onload = makeViz(dataArray);
+    makeViz(dataArray);
   });
   console.log('Information are loaded!');
 });
