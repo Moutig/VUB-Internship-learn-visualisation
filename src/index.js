@@ -2,6 +2,7 @@ import * as d3 from 'd3';
 import $ from 'jquery';
 import d3radial from 'd3-radial';
 import { cloud as d3cloud } from 'd3-v4-cloud';
+import { bboxCollide as d3collide } from 'd3-bboxCollide';
 import './style/style.scss';
 
 const makeViz = (data) => {
@@ -22,7 +23,7 @@ const makeViz = (data) => {
                 .attr('width', window.innerWidth - 10)
                 .attr('height', window.innerHeight - 35);
 
-  const margin = { top: 35, right: 0, bottom: 35, left: 0 };
+  const margin = { top: 60, right: 0, bottom: 20, left: 0 };
   const width = +svg.attr('width') - margin.left - margin.right;
   const height = +svg.attr('height') - margin.top - margin.bottom;
   let active = d3.select(null);
@@ -61,7 +62,8 @@ const makeViz = (data) => {
     .ticks(d3.timeYear)
     .tickFormat(dateFormat);
 
-  const dotSize = height / (d3.timeYear.count(new Date(Date.parse(nestedData[nestedData.length - 1].key)), new Date(Date.parse(nestedData[0].key))) * 6);
+  const dotSize = height / (d3.timeYear.count(new Date(Date.parse(nestedData[nestedData.length - 1].key)),
+  new Date(Date.parse(nestedData[0].key))) * 4.5);
 
   const arc = d3.arc()
     .innerRadius((width/200))
@@ -75,12 +77,12 @@ const makeViz = (data) => {
     .style('display', 'none');
 
   g.attr('class', 'xaxis')
-    .attr('transform', 'translate(' + $(window).width() / 2 + ',0)')
+    .attr('transform', 'translate(' + ((width / 2) + 3) + ',0)')
     .call(xMonthsAxis);
 
-  g.selectAll('.xaxis text')  // select all the text elements for the xaxis
+  g.selectAll('.xaxis text')
     .attr('transform', function() {
-      return 'translate(' + ((this.getBBox().height * (-0.5)) - dotSize) + ',0) rotate(20)';
+      return 'translate(' + ((this.getBBox().height * (-0.5) - (dotSize * 2))) + ',0) rotate(20)';
     })
     .attr('class', 'ticktext');
 
@@ -99,27 +101,34 @@ const makeViz = (data) => {
       return dateFormat(d);
     });
 
-  const circles = svg.selectAll('.xaxis circle')
+  const circleContainer = svg.selectAll('.circleContainer')
     .data(nestedData)
     .enter()
-    .append('circle')
+    .append('g')
+    .attr('class', 'circleContainer')
+    .attr('year', function(d) {
+      return dateFormat(new Date(d.key));
+    });
+
+  circleContainer.append('circle')
     .attr('id', function(d) {
       return dateFormatMonth(Date.parse(d.key));
     })
+    .attr('class', 'yearPoint')
     .attr('r', function() {
       return dotSize;
     })
-    .attr('cx', $(window).width() / 2.009)
+    .attr('cx', (width/2))
     .attr('cy', function(d) {
       return xScale(new Date(Date.parse(d.key)));
     })
-    .attr('fill', 'yellow')
+    .attr('fill', 'white')
     .attr('stroke', 'green')
     .attr('stroke-width', 1.5)
     .on('click', function () {
       const x = d3.select(this).attr('cx');
       const y = d3.select(this).attr('cy');
-      const scale = 3;
+      const scale = 1.6;
       if (active.node() === this) {
         reset();
         svg.select('.xaxis')
@@ -137,7 +146,7 @@ const makeViz = (data) => {
       } else {
         active.classed('active', false);
         active = d3.select(this).classed('active', true);
-        const translate = [((width / 2) - (scale * x)), (height / 2) - (y * scale)];
+        const translate = [((width / 2) - (scale * x)), (height / 2) - (y * scale) + (margin.top / 2)];
         svg.transition()
           .duration(800)
           .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
@@ -152,100 +161,144 @@ const makeViz = (data) => {
           .style('display', 'block');
         svg.selectAll('.ring')
           .style('display', 'block');
-        // svg.select('#wordcloud')
-        //  .attr('transform', 'translate(' + width / 2 + ', ' + (y + 15) + ')');
       }
     });
 
-  svg.selectAll('.xaxis circle')
-    .data(nestedData)
-    .enter()
-    .append('circle')
-    .attr('class', 'ring')
-    .attr('r', function() {
-      return dotSize + 12;
-    })
-    .attr('cx', $(window).width() / 2.009)
-    .attr('cy', function(d) {
-      return xScale(new Date(Date.parse(d.key)));
-    });
+    const cloudContainer = circleContainer.append('g')
+      .attr('class', 'wordcloudContainer')
+      .attr('year', function(d) {
+        console.log(d)
+        return dateFormat(new Date(d.key));
+      })
+      .attr('transform', function (d) {
+        return 'translate(' + (width / 2)+ ', ' + xScale(new Date(Date.parse(d.key))) + ')';
+      });
 
-  const nestedDataValues = svg.selectAll('.xaxis circle')
-    .data(nestedData)
-    .enter()
+  const radialData = nestedData.map(function (d) {
+    const radial = d3radial.radial()
+      .center([(width / 2), xScale(new Date(Date.parse(d.key)))])
+      .size([dotSize + 18, dotSize + 18]);
+    return radial(d.values)
+  });
 
-  nestedDataValues.selectAll('.xaxis circle')
-    .data(function (d) {
-      return d.values;
-    })
-    .enter()
-    .append('text')
-    .attr('transform', 'translate(' + circles.attr('cx') + ', ' + circles.attr('cy') + ')')
+  const imageWidth = 5;
+  const imageHeight = 5;
 
-  nestedDataValues.selectAll('.xaxis circle')
-    .data(function (d) {
-      const radial = d3radial.radial()
-        .center([($(window).width() / 2.009), xScale(new Date(Date.parse(d.key)))])
-        .size([dotSize + 12, dotSize + 12]);
-      return radial(d.values);
+  const collide = d3collide(function (d) {
+    return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]]
+  })
+    .strength(0.25)
+    .iterations(5)
+
+  const color = d3.scaleOrdinal(d3.schemeCategory20b)
+
+  const concatRadialData = [];
+
+  radialData.forEach((d) => {
+    d.forEach((d2) => {
+      concatRadialData.push(d2);
     })
-    .enter()
-    .append('image')
+  })
+
+  d3.forceSimulation(concatRadialData)
+    .velocityDecay(0.6)
+    .force('collide', collide)
+    .on('tick', updateNetwork);
+
+
+  const circle = svg.selectAll('.circleContainer')
+  .append('g')
+  .attr('class', 'pictures')
+  .selectAll('.pictures')
+  .data(radialData);
+
+  const circleEnter = circle.enter();
+
+  const image = circleEnter.selectAll('image.base')
+  .data(function (d) {
+    return d;
+  });
+
+  const imageEnter = image.enter()
+  .append('image')
+    .attr('class', 'base')
     .attr('xlink:href', function (d) {
       return d.key;
     })
     .attr('width', 10)
-    .attr('height', 10)
-    .attr('x', function(d) { return d.x - 5; })
-    .attr('y', function(d) { return d.y - 5; })
-    .attr('class', 'tagIcon')
-    .on('mouseover', function () {
-      d3.selectAll('.tagIcon').attr('visibility', 'hidden')
-      d3.select(this).attr('visibility', 'visible');
-      d3.select(this).attr('width', 80);
-      d3.select(this).attr('height', 80);
-    })
-    .on('mouseout', function () {
-      d3.selectAll('.tagIcon').attr('visibility', 'visible');
-      d3.select(this).attr('width', 10);
-      d3.select(this).attr('height', 10);
+    .attr('height', 10);
+
+  const imageEnterUpdate = image.merge(imageEnter);
+  function updateNetwork() {
+    imageEnterUpdate
+      .attr('transform', function (d) { return 'translate(' + (d.x - imageWidth) + ',' + (d.y - imageHeight) + ')'; });
+  }
+
+  const wordsArray = [];
+  radialData.forEach((c) => {
+    let tmpArray = [];
+    let tmpYear = null;
+    c.forEach((d) => {
+      d.values.forEach((d2) => {
+        tmpYear = dateFormat(d2.date);
+        tmpArray.push({ tag: d2.relatedTag, frequency: d2.frequency, image: d2.image});
+      });
+    });
+    console.log(tmpArray)
+    tmpArray = tmpArray.slice(0, 15);
+    wordsArray.push({ words: tmpArray, date: tmpYear })
+  })
+
+  cloudContainer.each(function(d) {
+    const self = d3.select(this);
+    const year = d3.select(this).attr('year');
+    let tmpArray = null;
+    wordsArray.forEach((o) => {
+      if (year === o.date) {
+        tmpArray = o.words;
+      }
     });
 
-  const test = ['Hello', 'world', 'normally', 'you', 'want', 'more', 'words',
-    'than', 'this'];
-  const fill = d3.scaleOrdinal(d3.schemeCategory20);
-  const layout = d3cloud()
-    .size([dotSize * 4.3, dotSize * 4.3])
-    .words(test.map(function(d) {
-        return { text: d, size: dotSize * 2 / test.length };
-    }))
-    .rotate(function() { return (~~(Math.random() * 6) - 3) * 30; })
-    .fontSize(function(d) { return d.size; })
-    .padding(.75)
-    .on("end", draw);
+    const layout = d3cloud()
+      .size([dotSize * 1.8, dotSize * 1.8])
+      .words(tmpArray.map(function(w) {
+        return { text: w.tag, size: dotSize / (tmpArray.length) };
+      }))
+      .rotate(function() { return 0; })
+      .fontSize(function(d) { return 6; })
+      .padding(1)
+      .spiral('rectangular')
+      .on("end", function (d){
+        return draw(d, self)
+      })
 
-  layout.start();
+    layout.start();
+  });
 
-  function draw(words) {
-    svg
-      .append("g")
-      .attr('id', 'wordcloud')
-      .selectAll("text")
+  function draw(words, self) {
+    self.selectAll('text')
       .data(words)
-      .enter().append("text")
-      .style("font-size", function(d) { return d.size + "px"; })
+      .enter()
+      .append('text')
+      .style("font-size", function(d) { return 6 + "px"; })
       .style("font-family", "Comic Sans MS")
-      .style("fill", function(d, i) { return fill(i); })
+      .style("fill", function(d, i) { return color(i); })
       .attr("text-anchor", "middle")
       .attr("transform", function(d) {
-        return "translate(" + [d.x * .75, d.y * .75] + ")rotate(" + d.rotate + ")";
+        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
       })
-      .text(function(d) { return d.text; });
+      .text(function(d) {
+        if (d.text.length > 8) {
+          return d.text.substring(0, 8) + '...';
+        } else {
+          return d.text;
+        }
+      });
   }
 };
 
 const token = '2004513296.1677ed0.7712065e2d5a4ab79aac2e8c9df4cf91';
-const numPhotos = 30;
+const numPhotos = 10;
 
 const loadInformation = $.ajax({
   url: 'https://api.instagram.com/v1/users/self/media/recent',
@@ -265,7 +318,7 @@ loadInformation.done((rawData) => {
       originalTagsArray.push(tag);
       tagDateArray.push(realDate);
       dataArray.push({
-        tag: tag,
+        relatedTag: tag,
         date: realDate,
         image: img.images.standard_resolution.url,
         frequency: 1
@@ -282,19 +335,19 @@ loadInformation.done((rawData) => {
   });
   $.when(...findMatchTags).done(function() {
     for (let i = 0; i < arguments.length; i++) {
-      const relatedTagsArray = [];
       arguments[i][0].items.forEach((photos) => {
+        console.log(photos)
         const tmpStringTagsArray = photos.tags.split(' ');
         tmpStringTagsArray.forEach((stringTag) => {
-          const result = relatedTagsArray.filter(function(obj) {
+          const result = dataArray.filter(function(obj) {
             return obj.relatedTag === stringTag;
           });
           if (result.length > 0) {
-            relatedTagsArray.forEach((obj) => {
+            dataArray.forEach((obj) => {
               obj.frequency++;
             })
           } else {
-            relatedTagsArray.push({
+            dataArray.push({
               relatedTag: stringTag,
               frequency: 1,
               image: photos.media.m,
@@ -302,9 +355,6 @@ loadInformation.done((rawData) => {
             });
           }
         });
-      });
-      relatedTagsArray.forEach((obj) => {
-        dataArray.push(obj);
       });
     }
     window.onload = makeViz(dataArray);

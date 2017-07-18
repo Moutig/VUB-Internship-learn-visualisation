@@ -1,7 +1,7 @@
-svg {
-  display : block;
+.wordcloudContainer {
+  display : inline;
   margin : auto;
-  position : absolute;
+  position : absolute
 }
 
 .tick text {
@@ -27,8 +27,4 @@ circle.ring {
   stroke-width: 1px;
   stroke-opacity: .15;
   stroke-dasharray: .5;
-}
-
-#app {
-  position : relative;
 }

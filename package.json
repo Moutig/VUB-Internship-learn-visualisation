@@ -26,6 +26,7 @@
   "homepage": "https://github.com/alicoding/react-webpack-babel#readme",
   "dependencies": {
     "d3": "^4.2.2",
+    "d3-bboxCollide": "^1.0.3",
     "d3-measure-text": "0.0.2",
     "d3-radial": "0.0.2",
     "d3-v4-cloud": "^1.0.0",
