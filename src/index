@@ -1,0 +1,27 @@
+function loadInstagramData (token, numData){
+  const loadInformation = $.ajax({
+    url: 'https://api.instagram.com/v1/users/self/media/recent',
+    dataType: 'jsonp',
+    method: 'GET',
+    data: { access_token: token, count: numPhotos }
+  });
+
+  loadInformation.done((rawData) => {
+    const dataArray = [];
+    const originalTagsArray = [];
+    const tagDateArray = [];
+    rawData.data.forEach((img) => {
+      const arrayTags = img.tags;
+      const realDate = new Date(img.created_time * 1000);
+      arrayTags.forEach((tag) => {
+        originalTagsArray.push(tag);
+        tagDateArray.push(realDate);
+        dataArray.push({
+          relatedTag: tag,
+          date: realDate,
+          image: img.images.standard_resolution.url,
+          frequency: 1
+        });
+      });
+    });
+}

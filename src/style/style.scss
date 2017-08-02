@@ -1,3 +1,8 @@
+#main_svg {
+  text-align: center;
+  position: relative;
+}
+
 .wordcloudContainer {
   display : inline;
   margin : auto;
@@ -27,4 +32,61 @@ circle.ring {
   stroke-width: 1px;
   stroke-opacity: .15;
   stroke-dasharray: .5;
+}
+
+input[type=radio] {
+  position: absolute;
+  visibility: hidden;
+  display: none;
+}
+
+label {
+  color: lighten(#332f35,40%);
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 1px 20px;
+  font-family: 'Comic Sans MS';
+}
+
+input[type=radio]:checked + label{
+  color: lighten(#332f35,60%);
+  background: lighten(#332f35,20%);
+}
+
+label + input[type=radio] + label {
+  border-left: solid 3px #332f35;
+}
+
+#form {
+  border: solid 3px #332f35;
+  display: inline-block;
+  border-radius: 10px;
+  overflow: hidden;
+  margin:auto;
+  text-align: center;
+}
+
+.arrow {
+  width: 0;
+  height: 0;
+  display: inline-block;
+  position: absolute;
+  right: 0;
+  margin-right: 5%;
+}
+
+.up {
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-bottom: 15px solid black;
+  margin-top: 15%;
+}
+
+.down {
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 15px solid black;
+  bottom: 0;
+  margin-bottom: 15%;
 }

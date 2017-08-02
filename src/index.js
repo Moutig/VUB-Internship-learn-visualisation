@@ -1,332 +1,46 @@
 import * as d3 from 'd3';
 import $ from 'jquery';
-import d3radial from 'd3-radial';
-import { cloud as d3cloud } from 'd3-v4-cloud';
 import { bboxCollide as d3collide } from 'd3-bboxCollide';
+import d3radial from 'd3-radial';
 import './style/style.scss';
 
-const makeViz = (data) => {
-  data.forEach((d) => {
-    d.floorDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
+function loadInstagramData (token) {
+  const loadInformation = $.ajax({
+    url: 'https://api.instagram.com/v1/users/self/media/recent',
+    dataType: 'jsonp',
+    method: 'GET',
+    data: { access_token: token }
   });
 
-  const nestedData = d3.nest()
-    .key((d) => {
-      return d.floorDate;
-    })
-    .key((d) => {
-      return d.image;
-    })
-    .entries(data);
-
-  const svg = d3.select('#app').append('svg')
-                .attr('width', window.innerWidth - 10)
-                .attr('height', window.innerHeight - 35);
-
-  const margin = { top: 60, right: 0, bottom: 20, left: 0 };
-
-  const width = +svg.attr('width') - margin.left - margin.right;
-
-  const height = +svg.attr('height') - margin.top - margin.bottom;
-
-  let active = d3.select(null);
-
-  function zoomed() {
-    svg.style('stroke-width', `${1 / d3.event.transform.k}px`);
-    svg.attr('transform', d3.event.transform);
-  }
-
-  const zoom = d3.zoom()
-    .scaleExtent([0.5, 5])
-    .on('zoom', zoomed);
-
-  function reset() {
-    active.classed('active', false);
-    active = d3.select(null);
-    svg.transition()
-      .duration(1000)
-      .call(zoom.transform, d3.zoomIdentity);
-  }
-
-  const g = svg
-            .append('g')
-            .attr('transform', `translate(${margin.left},${margin.top})`);
-
-  const xDomain = d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
-
-  const dateFormat = d3.timeFormat('%Y');
-
-  const dateFormatMonth = d3.timeFormat('%B%Y');
-
-  const xScale = d3.scaleTime()
-    .domain(xDomain)
-    .nice()
-    .range([height, margin.top]);
-
-  const xMonthsAxis = d3.axisLeft(xScale)
-    .ticks(d3.timeYear)
-    .tickFormat(dateFormat);
-
-  const dotSize = height /
-    (d3.timeYear.count(new Date(Date.parse(nestedData[nestedData.length - 1].key)),
-    new Date(Date.parse(nestedData[0].key))) * 4.5);
-
-  /* const arc = d3.arc()
-    .innerRadius((width/200))
-    .outerRadius((width/300))
-    .startAngle(0)
-    .endAngle(Math.PI);
-
-  g.append('path')
-    .attr('id', 'arc')
-    .attr('d', arc)
-    .style('display', 'none');
-*/
-
-  g.attr('class', 'xaxis')
-    .attr('transform', `translate(${((width / 2) + 3)},0)`)
-    .call(xMonthsAxis);
-
-  g.selectAll('.xaxis text')
-    .attr('transform', function() {
-      return `translate(${(((this.getBBox().height * (-0.5)) - (dotSize * 2)))},0) rotate(20)`;
-    })
-    .attr('class', 'ticktext');
-
-  g.selectAll('.tick')
-    .append('text')
-      .attr('id', (d) => {
-        return dateFormatMonth(d);
-      })
-      .attr('class', 'curvedtext')
-      .style('display', 'none')
-    .append('textPath')
-    .attr('xlink:href', '#arc')
-    .style('text-anchor', 'middle')
-    .attr('startOffset', '28%')
-    .text((d) => {
-      return dateFormat(d);
-    });
-
-  const circleContainer = svg.selectAll('.circleContainer')
-    .data(nestedData)
-    .enter()
-    .append('g')
-    .attr('class', 'circleContainer')
-    .attr('year', (d) => {
-      return dateFormat(new Date(d.key));
-    });
-
-  circleContainer.append('circle')
-    .attr('id', (d) => {
-      return dateFormatMonth(Date.parse(d.key));
-    })
-    .attr('class', 'yearPoint')
-    .attr('r', () => {
-      return dotSize;
-    })
-    .attr('cx', (width / 2))
-    .attr('cy', (d) => {
-      return xScale(new Date(Date.parse(d.key)));
-    })
-    .attr('fill', 'white')
-    .attr('stroke', 'green')
-    .attr('stroke-width', 1.5)
-    .on('click', function () {
-      const x = d3.select(this).attr('cx');
-      const y = d3.select(this).attr('cy');
-      const scale = 1.6;
-      if (active.node() === this) {
-        reset();
-        svg.select('.xaxis')
-          .style('display', 'block');
-        svg.selectAll('circle')
-          .style('display', 'block')
-          .attr('transform', 'translate(0,0)')
-          .attr('stroke-width', 1.5);
-        svg.selectAll('.tick line')
-          .style('display', 'block');
-        svg.selectAll('.ticktext')
-          .style('display', 'block');
-        svg.select('.curvedtext')
-          .style('display', 'none');
-      } else {
-        active.classed('active', false);
-        active = d3.select(this).classed('active', true);
-        const translate = [((width / 2) - (scale * x)),
-          ((height / 2) - (y * scale)) + (margin.top / 2)];
-        svg.transition()
-          .duration(800)
-          .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
-        svg.selectAll('circle')
-          .style('display', 'none')
-          .attr('stroke-width', d3.select(this).attr('stroke-width') / (scale / 4));
-        svg.selectAll('.tick line')
-          .style('display', 'none');
-        svg.selectAll('.tick text')
-          .style('display', 'none');
-        svg.select('.active')
-          .style('display', 'block');
-        svg.selectAll('.ring')
-          .style('display', 'block');
-      }
-    });
-
-  const cloudContainer = circleContainer.append('g')
-    .attr('class', 'wordcloudContainer')
-    .attr('year', (d) => {
-      return dateFormat(new Date(d.key));
-    })
-    .attr('transform', (d) => {
-      return `translate(${(width / 2)},${xScale(new Date(Date.parse(d.key)))})`;
-    });
-
-  const radialData = nestedData.map((d) => {
-    const radial = d3radial.radial()
-      .center([(width / 2), xScale(new Date(Date.parse(d.key)))])
-      .size([dotSize + 18, dotSize + 18]);
-    return radial(d.values);
-  });
-
-  const imageWidth = 5;
-  const imageHeight = 5;
-
-  const collide = d3collide(() => {
-    return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]];
-  })
-    .strength(0.25)
-    .iterations(5);
-
-  const color = d3.scaleOrdinal(d3.schemeCategory20b);
-
-  const concatRadialData = [];
-
-  radialData.forEach((d) => {
-    d.forEach((d2) => {
-      concatRadialData.push(d2);
-    });
-  });
-
-  const circle = svg.selectAll('.circleContainer')
-    .append('g')
-    .attr('class', 'pictures')
-    .selectAll('.pictures')
-    .data(radialData);
-
-  const circleEnter = circle.enter();
-
-  const image = circleEnter.selectAll('image.base')
-  .data((d) => {
-    return d;
-  });
-
-  const imageEnter = image.enter()
-  .append('image')
-    .attr('class', 'base')
-    .attr('xlink:href', (d) => {
-      return d.key;
-    })
-    .attr('width', 10)
-    .attr('height', 10);
-
-  const imageEnterUpdate = image.merge(imageEnter);
-  function updateNetwork() {
-    imageEnterUpdate
-      .attr('transform', (d) => { return `translate(${(d.x - imageWidth)},${(d.y - imageHeight)})`; });
-  }
-
-  d3.forceSimulation(concatRadialData)
-    .velocityDecay(0.6)
-    .force('collide', collide)
-    .on('tick', updateNetwork);
-
-  const wordsArray = [];
-  radialData.forEach((c) => {
-    let tmpArray = [];
-    let tmpYear = null;
-    c.forEach((d) => {
-      d.values.forEach((d2) => {
-        tmpYear = dateFormat(d2.date);
-        tmpArray.push({ tag: d2.relatedTag, frequency: d2.frequency, image: d2.image });
+  loadInformation.done((d) => {
+    const instagramDataArray = [];
+    const instagramTagsArray = [];
+    const instagramTagsDateArray = [];
+    d.data.forEach((img) => {
+      const tmpTagsArray = img.tags;
+      const realDate = new Date(img.created_time * 1000);
+      tmpTagsArray.forEach((tag) => {
+        instagramTagsArray.push(tag);
+        instagramTagsDateArray.push(realDate);
+        instagramDataArray.push({
+          relatedTag: tag,
+          date: realDate,
+          image: img.images.standard_resolution.url,
+          frequency: 1
+        });
       });
     });
-    tmpArray = tmpArray.slice(0, 15);
-    wordsArray.push({ words: tmpArray, date: tmpYear });
+    loadFlickrData(instagramDataArray, instagramTagsArray, instagramTagsDateArray);
+    console.log('Instagram data are loaded!');
   });
 
-  cloudContainer.each(function () {
-    const self = d3.select(this);
-    const year = d3.select(this).attr('year');
-    let tmpArray = null;
-    wordsArray.forEach((o) => {
-      if (year === o.date) {
-        tmpArray = o.words;
-      }
-    });
-
-    const layout = d3cloud()
-      .size([dotSize * 1.9, dotSize * 2])
-      .words(tmpArray.map((w) => {
-        return { text: w.tag, size: dotSize / (tmpArray.length) };
-      }))
-      .rotate(() => { return 0; })
-      .fontSize(() => { return 5; })
-      .padding(0.6)
-      .spiral('rectangular')
-      .on('end', (words) => {
-        self.selectAll('text')
-          .data(words)
-          .enter()
-          .append('text')
-          .style('font-size', () => { return `${5}px`; })
-          .style('font-family', 'Comic Sans MS')
-          .style('fill', (d, i) => { return color(i); })
-          .attr('text-anchor', 'middle')
-          .attr('transform', (d) => {
-            return `translate(${[d.x * 0.9, d.y * 0.9]}) rotate(${d.rotate})`;
-          })
-          .text((d) => {
-            if (d.text.length > 8) {
-              return `${d.text.substring(0, 8)}...`;
-            }
-            return d.text;
-          });
-      });
-
-    layout.start();
+  loadInformation.fail(() => {
+    console.log("Instagram aren't loaded");
   });
-};
+}
 
-const token = '2004513296.1677ed0.7712065e2d5a4ab79aac2e8c9df4cf91';
-const numPhotos = 10;
-
-const loadInformation = $.ajax({
-  url: 'https://api.instagram.com/v1/users/self/media/recent',
-  dataType: 'jsonp',
-  method: 'GET',
-  data: { access_token: token, count: numPhotos }
-});
-
-loadInformation.done((rawData) => {
-  const dataArray = [];
-  const originalTagsArray = [];
-  const tagDateArray = [];
-  rawData.data.forEach((img) => {
-    const arrayTags = img.tags;
-    const realDate = new Date(img.created_time * 1000);
-    arrayTags.forEach((tag) => {
-      originalTagsArray.push(tag);
-      tagDateArray.push(realDate);
-      dataArray.push({
-        relatedTag: tag,
-        date: realDate,
-        image: img.images.standard_resolution.url,
-        frequency: 1
-      });
-    });
-  });
-
-  const findMatchTags = $.map(originalTagsArray, (tag) => {
+function loadFlickrData(dataArray, tagsArray, tagsDateArray) {
+  const findMatchTags = $.map(tagsArray, (tag) => {
     return $.ajax({
       type: 'GET',
       dataType: 'jsonp',
@@ -334,6 +48,7 @@ loadInformation.done((rawData) => {
       data: `tags=${tag}&tagmode=any&format=json&jsoncallback=?`
     });
   });
+
   $.when(...findMatchTags).done(function() {
     for (let i = 0; i < arguments.length; i++) {
       arguments[i][0].items.forEach((photos) => {
@@ -351,17 +66,567 @@ loadInformation.done((rawData) => {
               relatedTag: stringTag,
               frequency: 1,
               image: photos.media.m,
-              date: tagDateArray[i]
+              date: tagsDateArray[i],
+              floorYearDate: d3.timeHour.offset(d3.timeYear.floor(tagsDateArray[i]), 2),
+              floorMonthDate: d3.timeHour.offset(d3.timeMonth.floor(tagsDateArray[i]), 2),
+              floorDayDate: d3.timeHour.offset(d3.timeDay.floor(tagsDateArray[i]), 2)
             });
           }
         });
       });
     }
-    makeViz(dataArray);
+    makeDataviz(dataArray);
   });
-  console.log('Information are loaded!');
-});
+}
 
-loadInformation.fail(() => {
-  console.log("Information aren't loaded");
-});
+function makeDataviz (dataArray) {
+  const form = d3.select('#app').append('div')
+    .attr('id', 'form');
+
+  const radioButtonYear = form.append('input')
+    .attr('id', 'r1')
+    .attr('type', 'radio')
+    .attr('name', 'radioButton')
+    .attr('value', 'Year')
+    .attr('checked', 'checked');
+
+  const labelYear = form.append('label')
+    .attr('for', 'r1')
+    .text('Year');
+
+  const radioButtonMonth = form.append('input')
+    .attr('id', 'r2')
+    .attr('type', 'radio')
+    .attr('name', 'radioButton')
+    .attr('value', 'Month');
+
+  const labelMonth = form.append('label')
+    .attr('for', 'r2')
+    .text('Month');
+
+  const radioButtonWeek = form.append('input')
+    .attr('id', 'r3')
+    .attr('type', 'radio')
+    .attr('name', 'radioButton')
+    .attr('value', 'Week');
+
+  const labelDay = form.append('label')
+    .attr('for', 'r3')
+    .text('Week');
+
+  let eventValue = d3.selectAll('input[type=radio]').attr('value');
+
+  let nestedData = nestData(dataArray, eventValue);
+
+  let svg = d3.select('#app').append('svg')
+    .attr('id', 'main_svg')
+    .attr('width', window.innerWidth - 10)
+    .attr('height', window.innerHeight - 70);
+
+  createNavButtonUp();
+
+  createNavButtonDown();
+
+  const margin = { top: 100, right: 0, bottom: 30, left: 0 };
+
+  const width = +svg.attr('width') - margin.left - margin.right;
+
+  const height = +svg.attr('height') - margin.top - margin.bottom;
+
+  createTimeline(eventValue, null, null, nestedData, height, width, margin, null);
+
+  d3.selectAll('input[type=radio]').on('change', function () {
+    nestedData = nestData(dataArray, this.value);
+
+    d3.select('#main_svg').remove();
+    d3.select('.up').remove();
+    d3.select('.down').remove();
+
+    svg = d3.select('#app').append('svg')
+      .attr('id', 'main_svg')
+      .attr('width', window.innerWidth - 10)
+      .attr('height', window.innerHeight - 70);
+
+    createNavButtonUp();
+
+    createNavButtonDown();
+
+    eventValue = this.value;
+
+    createTimeline(eventValue, null, null, nestedData, height, width, margin, null);
+  });
+}
+
+function createNavButtonUp () {
+  d3.select('#app')
+    .append('a')
+    .attr('href', '#')
+    .attr('class', 'arrow up');
+}
+
+function createNavButtonDown() {
+  d3.select('#app')
+    .append('a')
+    .attr('href', '#')
+    .attr('class', 'arrow down');
+}
+
+function nestData (dataArray, eventValue) {
+  dataArray.forEach((d) => {
+    d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
+    d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
+    d.floorDayDate = d3.timeHour.offset(d3.timeDay.floor(d.date), 2);
+  });
+
+  if (eventValue === 'Year') {
+    return d3.nest().key((d) => {
+      return d.floorYearDate;
+    })
+    .key((d) => {
+      return d.image;
+    })
+    .entries(dataArray);
+  } else if (eventValue === 'Month') {
+    return d3.nest().key((d) => {
+      return d.floorMonthDate;
+    })
+    .key((d) => {
+      return d.image;
+    })
+    .entries(dataArray);
+  } else if (eventValue === 'Week') {
+    return d3.nest().key((d) => {
+      return d.floorDayDate;
+    })
+    .key((d) => {
+      return d.image;
+    })
+    .entries(dataArray);
+  }
+}
+
+function createTimeline (eventValue, scope, domainNestedData, nestedData, height, width, margin, yDomain) {
+  const g = d3.select('#main_svg')
+            .append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const dateFormatYear = d3.timeFormat('%Y');
+
+  const dateFormatMonthYear = d3.timeFormat('%m/%y');
+
+  const dateFormatWeekYear = d3.timeFormat('W.%W %Y');
+
+  if (scope === null) {
+    scope = d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
+    if (eventValue === 'Year') {
+      yDomain = [scope[0], d3.timeYear.offset(scope[0], 1)];
+    } else if (eventValue === 'Month') {
+      yDomain = [scope[0], d3.timeMonth.offset(scope[0], 1)];
+    } else if (eventValue === 'Week') {
+      yDomain = [scope[0], d3.timeWeek.offset(scope[0], 2)];
+    }
+  }
+
+  if ((eventValue === 'Year') && (dateFormatYear(yDomain[0]) === dateFormatYear(yDomain[1]))) {
+    yDomain[1] = d3.timeYear.offset(yDomain[1], 1);
+  } else if ((eventValue === 'Month') && (dateFormatMonthYear(yDomain[0]) === dateFormatMonthYear(yDomain[1]))) {
+    yDomain[1] = d3.timeMonth.offset(yDomain[1], 1);
+  } else if ((eventValue === 'Week') && (dateFormatWeekYear(yDomain[0]) === dateFormatWeekYear(yDomain[1]))) {
+    yDomain[1] = d3.timeWeek.offset(yDomain[1], 1);
+  }
+
+  const yScale = d3.scaleTime()
+    .domain(yDomain)
+    .nice()
+    .range([height, margin.top]);
+
+  const yAxis = d3.axisLeft(yScale);
+
+  if (eventValue === 'Year') {
+    yAxis.ticks(d3.timeYear)
+    .tickFormat(dateFormatYear);
+
+    if (d3.timeYear.offset(yDomain[1], 1) <= scope[1]) {
+      d3.select('.up').style('border-bottom', '15px solid green');
+    } else {
+      d3.select('.up').style('border-bottom', '15px solid red');
+    }
+
+    if (d3.timeYear.offset(yDomain[0], -1) >= scope[0]) {
+      d3.select('.down').style('border-top', '15px solid green');
+    } else {
+      d3.select('.down').style('border-top', '15px solid red');
+    }
+  } else if (eventValue === 'Month') {
+    yAxis.ticks(d3.timeMonth)
+    .tickFormat(dateFormatMonthYear);
+
+    if (d3.timeMonth.offset(yDomain[1], 1) <= scope[1]) {
+      d3.select('.up').style('border-bottom', '15px solid green');
+    } else {
+      d3.select('.up').style('border-bottom', '15px solid red');
+    }
+
+    if (d3.timeMonth.offset(yDomain[0], -1) >= scope[0]) {
+      d3.select('.down').style('border-top', '15px solid green');
+    } else {
+      d3.select('.down').style('border-top', '15px solid red');
+    }
+  } else if (eventValue === 'Week') {
+    yAxis.ticks(d3.timeWeek)
+      .tickFormat(dateFormatWeekYear);
+
+    if (d3.timeWeek.offset(yDomain[1], 1) <= scope[1]) {
+      d3.select('.up').style('border-bottom', '15px solid green');
+    } else {
+      d3.select('.up').style('border-bottom', '15px solid red');
+    }
+
+    if (d3.timeWeek.offset(yDomain[0], -1) >= scope[0]) {
+      d3.select('.down').style('border-top', '15px solid green');
+    } else {
+      d3.select('.down').style('border-top', '15px solid red');
+    }
+  }
+
+  g.attr('class', 'xaxis')
+    .attr('transform', `translate(${((width / 2) + 3)},0)`)
+    .call(yAxis);
+
+  if (eventValue === 'Year') {
+    g.selectAll('.tick text')
+      .attr('transform', () => {
+        return 'translate(-115,0) rotate(20)';
+      })
+      .attr('class', 'ticktext');
+  } else if (eventValue === 'Month') {
+    g.selectAll('.tick text')
+      .attr('transform', () => {
+        return 'translate(-110,0) rotate(20)';
+      })
+      .attr('class', 'ticktext');
+  } else if (eventValue === 'Week') {
+    g.selectAll('.tick text')
+      .attr('transform', () => {
+        return 'translate(-80,0) rotate(20)';
+      })
+      .attr('class', 'ticktext');
+  }
+
+  g.selectAll('.tick')
+    .append('text')
+      .attr('id', (d) => {
+        return dateFormatMonthYear(d);
+      })
+      .attr('class', 'curvedtext')
+      .style('display', 'none')
+    .append('textPath')
+    .attr('xlink:href', '#arc')
+    .style('text-anchor', 'middle')
+    .attr('startOffset', '28%')
+    .text((d) => {
+      return dateFormatMonthYear(d);
+    });
+
+  domainNestedData = [];
+
+  nestedData.forEach((d) => {
+    if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+      ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+      domainNestedData.push(d);
+    }
+  });
+
+  const circleContainer = d3.select('#main_svg').selectAll('.circleContainer')
+    .data(domainNestedData)
+    .enter()
+    .append('g')
+    .attr('class', 'circleContainer')
+    .attr('year', (d) => {
+      return dateFormatYear(new Date(d.key));
+    });
+
+  if (eventValue === 'Year') {
+    d3.select('.up')
+      .on('click', () => {
+        if (d3.timeYear.offset(yDomain[1], 1) <= scope[1]) {
+          yDomain[0] = d3.timeYear.offset(yDomain[0], 1);
+          yDomain[1] = d3.timeYear.offset(yDomain[1], 1);
+          d3.selectAll('.circleContainer').remove();
+          d3.selectAll('.xaxis').remove();
+          domainNestedData = [];
+          nestedData.forEach((d) => {
+            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+              domainNestedData.push(d);
+            }
+          });
+          createTimeline(eventValue, scope, domainNestedData,
+            nestedData, height, width, margin, yDomain);
+        }
+      });
+    d3.select('.down')
+      .on('click', () => {
+        if (d3.timeYear.offset(yDomain[0], -1) >= scope[0]) {
+          yDomain[0] = d3.timeYear.offset(yDomain[0], -1);
+          yDomain[1] = d3.timeYear.offset(yDomain[1], -1);
+          d3.selectAll('.circleContainer').remove();
+          d3.selectAll('.xaxis').remove();
+          domainNestedData = [];
+          nestedData.forEach((d) => {
+            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+              domainNestedData.push(d);
+            }
+          });
+          createTimeline(eventValue, scope, domainNestedData,
+            nestedData, height, width, margin, yDomain);
+        }
+      });
+  } else if (eventValue === 'Month') {
+    d3.select('.up')
+      .on('click', () => {
+        if (d3.timeMonth.offset(yDomain[1], 1) <= scope[1]) {
+          yDomain[0] = d3.timeMonth.offset(yDomain[0], 1);
+          yDomain[1] = d3.timeMonth.offset(yDomain[1], 1);
+          d3.selectAll('.circleContainer').remove();
+          d3.selectAll('.xaxis').remove();
+          domainNestedData = [];
+          nestedData.forEach((d) => {
+            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+              domainNestedData.push(d);
+            }
+          });
+          createTimeline(eventValue, scope, domainNestedData,
+            nestedData, height, width, margin, yDomain);
+        }
+      });
+    d3.select('.down')
+      .on('click', () => {
+        if (d3.timeMonth.offset(yDomain[0], -1) >= scope[0]) {
+          yDomain[0] = d3.timeMonth.offset(yDomain[0], -1);
+          yDomain[1] = d3.timeMonth.offset(yDomain[1], -1);
+          d3.selectAll('.circleContainer').remove();
+          d3.selectAll('.xaxis').remove();
+          domainNestedData = [];
+          nestedData.forEach((d) => {
+            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+              domainNestedData.push(d);
+            }
+          });
+          createTimeline(eventValue, scope, domainNestedData,
+            nestedData, height, width, margin, yDomain);
+        }
+      });
+  } else if (eventValue === 'Week') {
+    d3.select('.up')
+      .on('click', () => {
+        if (d3.timeWeek.offset(yDomain[1], 1) <= scope[1]) {
+          yDomain[0] = d3.timeWeek.offset(yDomain[0], 2);
+          yDomain[1] = d3.timeWeek.offset(yDomain[1], 2);
+          d3.selectAll('.circleContainer').remove();
+          d3.selectAll('.xaxis').remove();
+          domainNestedData = [];
+          nestedData.forEach((d) => {
+            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+              domainNestedData.push(d);
+            }
+          });
+          createTimeline(eventValue, scope, domainNestedData,
+            nestedData, height, width, margin, yDomain);
+        }
+      });
+    d3.select('.down')
+      .on('click', () => {
+        if (d3.timeWeek.offset(yDomain[0], -1) >= scope[0]) {
+          yDomain[0] = d3.timeWeek.offset(yDomain[0], -2);
+          yDomain[1] = d3.timeWeek.offset(yDomain[1], -2);
+          d3.selectAll('.circleContainer').remove();
+          d3.selectAll('.xaxis').remove();
+          domainNestedData = [];
+          nestedData.forEach((d) => {
+            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
+              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
+              domainNestedData.push(d);
+            }
+          });
+          createTimeline(eventValue, scope, domainNestedData,
+            nestedData, height, width, margin, yDomain);
+        }
+      });
+  }
+
+  addCircle(dateFormatYear, dateFormatMonthYear, width, yScale, circleContainer, eventValue);
+  zoomEvent(circleContainer, height, width, margin);
+  addSmallPicture(nestedData, domainNestedData, width, yScale, eventValue);
+}
+
+function addCircle (dateFormatYear, dateFormatMonthYear, width, yScale, circleContainer, eventValue) {
+  circleContainer.append('circle')
+    .attr('id', (d) => {
+      return dateFormatMonthYear(Date.parse(d.key));
+    })
+    .attr('class', 'yearPoint')
+    .attr('r', (d) => {
+      return getCircleSize(d, eventValue);
+    })
+    .attr('cx', (width / 2))
+    .attr('cy', (d) => {
+      return yScale(new Date(Date.parse(d.key)));
+    })
+    .attr('fill', 'white')
+    .attr('stroke', 'green')
+    .attr('stroke-width', 1.5);
+}
+
+function zoomEvent(circleContainer, height, width, margin) {
+  let active = d3.select(null);
+
+  function zoomed() {
+    d3.select('#main_svg').style('stroke-width', `${1 / d3.event.transform.k}px`);
+    d3.select('#main_svg').attr('transform', d3.event.transform);
+  }
+
+  const zoom = d3.zoom()
+    .scaleExtent([0.5, 5])
+    .on('zoom', zoomed);
+
+  function reset() {
+    active.classed('active', false);
+    active = d3.select(null);
+    d3.select('#main_svg').transition()
+      .duration(1000)
+      .call(zoom.transform, d3.zoomIdentity);
+  }
+
+  d3.selectAll('.yearPoint').on('click', function () {
+    const x = d3.select(this).attr('cx');
+    const y = d3.select(this).attr('cy');
+    const scale = width / (3 * d3.select(this).attr('r'));
+    if (active.node() === this) {
+      reset();
+      d3.select('#main_svg').select('.xaxis')
+        .style('display', 'block');
+      d3.select('#main_svg').selectAll('circle')
+        .style('display', 'block')
+        .attr('transform', 'translate(0,0)')
+        .attr('stroke-width', 1.5);
+      d3.select('#main_svg').selectAll('.tick line')
+        .style('display', 'block');
+      d3.select('#main_svg').selectAll('.ticktext')
+        .style('display', 'block');
+      d3.select('#main_svg').select('.curvedtext')
+        .style('display', 'none');
+    } else {
+      active.classed('active', false);
+      active = d3.select(this).classed('active', true);
+      const translate = [((width / 2) - (scale * x)),
+        ((height / 2) - (y * scale)) + (margin.top / 2)];
+      d3.select('#main_svg').transition()
+        .duration(800)
+        .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+      d3.select('#main_svg').selectAll('circle')
+        .style('display', 'none')
+        .attr('stroke-width', d3.select(this).attr('stroke-width') / (scale / 4));
+      d3.select('#main_svg').selectAll('.tick line')
+        .style('display', 'none');
+      d3.select('#main_svg').selectAll('.tick text')
+        .style('display', 'none');
+      d3.select('#main_svg').select('.active')
+        .style('display', 'block');
+      d3.select('#main_svg').selectAll('.ring')
+        .style('display', 'block');
+    }
+  });
+}
+
+function getCircleSize(nestedData, eventValue) {
+  let sizeAdapt = 0;
+
+  if (eventValue === 'Year') {
+    sizeAdapt = 1;
+  } else if (eventValue === 'Month') {
+    sizeAdapt = 1.5;
+  } else if (eventValue === 'Week') {
+    sizeAdapt = 1.5;
+  }
+  if (nestedData.values.length > 90) {
+    return 90 * sizeAdapt;
+  } else if (nestedData.values.length < 30) {
+    return 30 * sizeAdapt;
+  }
+  return nestedData.values.length * sizeAdapt;
+}
+
+function addSmallPicture(nestedData, domainNestedData, width, yScale, eventValue) {
+  const imageWidth = 3.5;
+  const imageHeight = 3.5;
+
+  const collide = d3collide(() => {
+    return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]];
+  })
+    .strength(0.25)
+    .iterations(5);
+
+  const concatRadialData = [];
+
+  nestedData.forEach((d) => {
+    d.values.forEach((d2) => {
+      concatRadialData.push(d2);
+    });
+  });
+
+  const radialData = domainNestedData.map((d) => {
+    const radial = d3radial.radial()
+      .center([(width / 2), yScale(new Date(Date.parse(d.key)))])
+      .size([getCircleSize(d, eventValue) + 14, getCircleSize(d, eventValue) + 14]);
+    return radial(d.values);
+  });
+
+  const circle = d3.select('#main_svg')
+    .selectAll('.circleContainer')
+    .append('g')
+    .attr('class', 'pictures')
+    .selectAll('.pictures')
+    .data(radialData);
+
+  const circleEnter = circle.enter();
+
+  const image = circleEnter.selectAll('image.base')
+    .data((d) => {
+      return d;
+    });
+
+  const imageEnter = image.enter()
+    .append('image')
+    .attr('class', 'base')
+    .attr('xlink:href', (d) => {
+      return d.key;
+    })
+    .attr('width', 7)
+    .attr('height', 7);
+
+  const imageEnterUpdate = image.merge(imageEnter);
+  function updateNetwork() {
+    imageEnterUpdate
+      .attr('transform', (d) => { return `translate(${(d.x - imageWidth)},${(d.y - imageHeight)})`; });
+  }
+
+  d3.forceSimulation(concatRadialData)
+    .velocityDecay(0.6)
+    .force('collide', collide)
+    .on('tick', updateNetwork);
+}
+
+function main() {
+  // Jan access_token
+  // const token = '3168846451.1677ed0.73c8db6fb18f44bc9e7be911f549fa5c';
+  // Pierre access_token
+  const token = '2004513296.1677ed0.7712065e2d5a4ab79aac2e8c9df4cf91';
+  loadInstagramData(token);
+}
+
+main();
