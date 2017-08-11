@@ -79,82 +79,40 @@ function loadFlickrData(dataArray, tagsArray, tagsDateArray) {
   });
 }
 
-function makeDataviz (dataArray) {
+function createRadioGroup() {
   const form = d3.select('#app').append('div')
     .attr('id', 'form');
 
-  const radioButtonYear = form.append('input')
+  form.append('input')
     .attr('id', 'r1')
     .attr('type', 'radio')
     .attr('name', 'radioButton')
     .attr('value', 'Year')
     .attr('checked', 'checked');
 
-  const labelYear = form.append('label')
+  form.append('label')
     .attr('for', 'r1')
     .text('Year');
 
-  const radioButtonMonth = form.append('input')
+  form.append('input')
     .attr('id', 'r2')
     .attr('type', 'radio')
     .attr('name', 'radioButton')
     .attr('value', 'Month');
 
-  const labelMonth = form.append('label')
+  form.append('label')
     .attr('for', 'r2')
     .text('Month');
 
-  const radioButtonWeek = form.append('input')
+  form.append('input')
     .attr('id', 'r3')
     .attr('type', 'radio')
     .attr('name', 'radioButton')
     .attr('value', 'Week');
 
-  const labelDay = form.append('label')
+  form.append('label')
     .attr('for', 'r3')
     .text('Week');
-
-  let eventValue = d3.selectAll('input[type=radio]').attr('value');
-
-  let nestedData = nestData(dataArray, eventValue);
-
-  let svg = d3.select('#app').append('svg')
-    .attr('id', 'main_svg')
-    .attr('width', window.innerWidth - 10)
-    .attr('height', window.innerHeight - 70);
-
-  createNavButtonUp();
-
-  createNavButtonDown();
-
-  const margin = { top: 100, right: 0, bottom: 30, left: 0 };
-
-  const width = +svg.attr('width') - margin.left - margin.right;
-
-  const height = +svg.attr('height') - margin.top - margin.bottom;
-
-  createTimeline(eventValue, null, null, nestedData, height, width, margin, null);
-
-  d3.selectAll('input[type=radio]').on('change', function () {
-    nestedData = nestData(dataArray, this.value);
-
-    d3.select('#main_svg').remove();
-    d3.select('.up').remove();
-    d3.select('.down').remove();
-
-    svg = d3.select('#app').append('svg')
-      .attr('id', 'main_svg')
-      .attr('width', window.innerWidth - 10)
-      .attr('height', window.innerHeight - 70);
-
-    createNavButtonUp();
-
-    createNavButtonDown();
-
-    eventValue = this.value;
-
-    createTimeline(eventValue, null, null, nestedData, height, width, margin, null);
-  });
 }
 
 function createNavButtonUp () {
@@ -205,94 +163,108 @@ function nestData (dataArray, eventValue) {
   }
 }
 
-function createTimeline (eventValue, scope, domainNestedData, nestedData, height, width, margin, yDomain) {
-  const g = d3.select('#main_svg')
-            .append('g')
-            .attr('transform', `translate(${margin.left},${margin.top})`);
+function defineScope(nestedData) {
+  return d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
+}
 
-  const dateFormatYear = d3.timeFormat('%Y');
-
-  const dateFormatMonthYear = d3.timeFormat('%m/%y');
-
-  const dateFormatWeekYear = d3.timeFormat('W.%W %Y');
-
-  if (scope === null) {
-    scope = d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
-    if (eventValue === 'Year') {
-      yDomain = [scope[0], d3.timeYear.offset(scope[0], 1)];
-    } else if (eventValue === 'Month') {
-      yDomain = [scope[0], d3.timeMonth.offset(scope[0], 1)];
-    } else if (eventValue === 'Week') {
-      yDomain = [scope[0], d3.timeWeek.offset(scope[0], 2)];
-    }
-  }
-
-  if ((eventValue === 'Year') && (dateFormatYear(yDomain[0]) === dateFormatYear(yDomain[1]))) {
-    yDomain[1] = d3.timeYear.offset(yDomain[1], 1);
-  } else if ((eventValue === 'Month') && (dateFormatMonthYear(yDomain[0]) === dateFormatMonthYear(yDomain[1]))) {
-    yDomain[1] = d3.timeMonth.offset(yDomain[1], 1);
-  } else if ((eventValue === 'Week') && (dateFormatWeekYear(yDomain[0]) === dateFormatWeekYear(yDomain[1]))) {
-    yDomain[1] = d3.timeWeek.offset(yDomain[1], 1);
-  }
-
-  const yScale = d3.scaleTime()
-    .domain(yDomain)
-    .nice()
-    .range([height, margin.top]);
-
-  const yAxis = d3.axisLeft(yScale);
-
+function defineDomain(scope, eventValue) {
   if (eventValue === 'Year') {
-    yAxis.ticks(d3.timeYear)
-    .tickFormat(dateFormatYear);
-
-    if (d3.timeYear.offset(yDomain[1], 1) <= scope[1]) {
-      d3.select('.up').style('border-bottom', '15px solid green');
-    } else {
-      d3.select('.up').style('border-bottom', '15px solid red');
-    }
-
-    if (d3.timeYear.offset(yDomain[0], -1) >= scope[0]) {
-      d3.select('.down').style('border-top', '15px solid green');
-    } else {
-      d3.select('.down').style('border-top', '15px solid red');
-    }
+    return [scope[0], d3.timeYear.offset(scope[0], 1)];
   } else if (eventValue === 'Month') {
-    yAxis.ticks(d3.timeMonth)
-    .tickFormat(dateFormatMonthYear);
-
-    if (d3.timeMonth.offset(yDomain[1], 1) <= scope[1]) {
-      d3.select('.up').style('border-bottom', '15px solid green');
-    } else {
-      d3.select('.up').style('border-bottom', '15px solid red');
-    }
-
-    if (d3.timeMonth.offset(yDomain[0], -1) >= scope[0]) {
-      d3.select('.down').style('border-top', '15px solid green');
-    } else {
-      d3.select('.down').style('border-top', '15px solid red');
-    }
+    return [scope[0], d3.timeMonth.offset(scope[0], 1)];
   } else if (eventValue === 'Week') {
-    yAxis.ticks(d3.timeWeek)
-      .tickFormat(dateFormatWeekYear);
-
-    if (d3.timeWeek.offset(yDomain[1], 1) <= scope[1]) {
-      d3.select('.up').style('border-bottom', '15px solid green');
-    } else {
-      d3.select('.up').style('border-bottom', '15px solid red');
-    }
-
-    if (d3.timeWeek.offset(yDomain[0], -1) >= scope[0]) {
-      d3.select('.down').style('border-top', '15px solid green');
-    } else {
-      d3.select('.down').style('border-top', '15px solid red');
-    }
+    return [scope[0], d3.timeWeek.offset(scope[0], 2)];
   }
+}
 
-  g.attr('class', 'xaxis')
-    .attr('transform', `translate(${((width / 2) + 3)},0)`)
-    .call(yAxis);
+function makeDataviz (dataArray) {
+  createRadioGroup();
 
+  let eventValue = d3.selectAll('input[type=radio]').attr('value');
+
+  let nestedData = nestData(dataArray, eventValue);
+
+  const svg = d3.select('#app').append('svg')
+    .attr('id', 'main_svg')
+    .attr('width', window.innerWidth - 10)
+    .attr('height', window.innerHeight - 70);
+
+  createNavButtonUp();
+
+  createNavButtonDown();
+
+  const margin = { top: 100, right: 0, bottom: 30, left: 0 };
+
+  const width = +svg.attr('width') - margin.left - margin.right;
+
+  const height = +svg.attr('height') - margin.top - margin.bottom;
+
+  createTimeline(eventValue, null, null, nestedData, height, width, margin, null);
+
+  d3.selectAll('input[type=radio]').on('change', function () {
+    nestedData = nestData(dataArray, this.value);
+
+    console.log(nestedData)
+
+    d3.select('.axis').remove();
+    d3.selectAll('.circleContainer').remove();
+
+    eventValue = this.value;
+
+    createTimeline(eventValue, null, null, nestedData, height, width, margin, null);
+  });
+}
+
+function getDateFormat (eventValue) {
+  if (eventValue === 'Year') {
+    return d3.timeFormat('%Y');
+  } else if (eventValue === 'Month') {
+    return d3.timeFormat('%m/%y');
+  } else if (eventValue === 'Week') {
+    return d3.timeFormat('W.%W %Y');
+  }
+  return null;
+}
+
+function getD3TimeScale (eventValue) {
+  if (eventValue === 'Year') {
+    return d3.timeYear;
+  } else if (eventValue === 'Month') {
+    return d3.timeMonth;
+  } else if (eventValue === 'Week') {
+    return d3.timeWeek;
+  }
+  return null;
+}
+
+function adjustDomain (eventValue, yDomain) {
+  if (getDateFormat(eventValue)(yDomain[0]) === getDateFormat(eventValue)(yDomain[1])) {
+    yDomain[1] = getD3TimeScale(eventValue).offset(yDomain[1], 1);
+  }
+}
+
+function createTicks(yAxis, eventValue) {
+  return yAxis.ticks(getD3TimeScale(eventValue))
+    .tickFormat(getDateFormat(eventValue));
+}
+
+function updateStyleButtonUp (eventValue, scope, yDomain) {
+  if (getD3TimeScale(eventValue).offset(yDomain[1], 1) <= scope[1]) {
+    d3.select('.up').style('border-bottom', '15px solid green');
+  } else {
+    d3.select('.up').style('border-bottom', '15px solid red');
+  }
+}
+
+function updateStyleButtonDown (eventValue, scope, yDomain) {
+  if (getD3TimeScale(eventValue).offset(yDomain[0], -1) >= scope[0]) {
+    d3.select('.down').style('border-top', '15px solid green');
+  } else {
+    d3.select('.down').style('border-top', '15px solid red');
+  }
+}
+
+function updateTicksPosition (g, eventValue) {
   if (eventValue === 'Year') {
     g.selectAll('.tick text')
       .attr('transform', () => {
@@ -312,22 +284,9 @@ function createTimeline (eventValue, scope, domainNestedData, nestedData, height
       })
       .attr('class', 'ticktext');
   }
+}
 
-  g.selectAll('.tick')
-    .append('text')
-      .attr('id', (d) => {
-        return dateFormatMonthYear(d);
-      })
-      .attr('class', 'curvedtext')
-      .style('display', 'none')
-    .append('textPath')
-    .attr('xlink:href', '#arc')
-    .style('text-anchor', 'middle')
-    .attr('startOffset', '28%')
-    .text((d) => {
-      return dateFormatMonthYear(d);
-    });
-
+function createDomainNestedData (domainNestedData, nestedData, yDomain) {
   domainNestedData = [];
 
   nestedData.forEach((d) => {
@@ -336,51 +295,125 @@ function createTimeline (eventValue, scope, domainNestedData, nestedData, height
       domainNestedData.push(d);
     }
   });
+  return domainNestedData;
+}
 
-  const circleContainer = d3.select('#main_svg').selectAll('.circleContainer')
+function createCircleContainer (domainNestedData, yDomain, eventValue) {
+  return d3.select('#main_svg').selectAll('.circleContainer')
     .data(domainNestedData)
     .enter()
     .append('g')
     .attr('class', 'circleContainer')
+    .attr('id', (d) => {
+      return `cc${getDateFormat(eventValue)(new Date(d.key))}`;
+    })
     .attr('year', (d) => {
-      return dateFormatYear(new Date(d.key));
+      return getDateFormat('Year')(new Date(d.key));
     });
+}
+
+function updateTimeline (oldDomainNestedData, domainNestedData, eventValue, yAxis, yScale, yDomain, width, height, margin) {
+  const sameDomainData = [];
+  const oldDomainData = [];
+  const newDomainData = [];
+
+  oldDomainNestedData.forEach((d) => {
+    if (domainNestedData.indexOf(d.key) !== -1) {
+      sameDomainData.push(getDateFormat(eventValue)(d.key));
+    } else {
+      oldDomainData.push(getDateFormat(eventValue)(new Date(Date.parse(d.key))));
+    }
+  });
+
+  domainNestedData.forEach((d) => {
+    if (oldDomainNestedData.indexOf(d.key) === -1) {
+      newDomainData.push(d);
+    }
+  });
+
+  console.log(sameDomainData);
+  console.log(oldDomainData);
+  console.log(newDomainData);
+
+  sameDomainData.forEach((d) => {
+    d3.select(`#c${d}`)
+      .attr('transform', 'translate(-100, 0)');
+  });
+
+  oldDomainData.forEach((d) => {
+    d3.select(`#cc${d}`).remove();
+    yScale.domain(yDomain).nice();
+    d3.select('.axis').call(yAxis);
+    updateTicksPosition(d3.select('.axis'), eventValue);
+  });
+
+  newDomainData.forEach(() => {
+    const circleContainer = createCircleContainer(domainNestedData, yDomain, eventValue);
+    addCircle(height, width, yScale, circleContainer, eventValue, margin);
+  })
+
+
+}
+
+function createTimeline (eventValue, scope, domainNestedData, nestedData, height, width, margin, yDomain) {
+  const g = d3.select('#main_svg')
+            .append('g')
+            .attr('class', 'axis')
+            .attr('transform', `translate(${((width / 2) + 3)},0)`);
+
+  if (scope === null) {
+    scope = defineScope(nestedData);
+    yDomain = defineDomain(scope, eventValue);
+  }
+
+  adjustDomain(eventValue, yDomain);
+
+  const yScale = d3.scaleTime()
+    .domain(yDomain)
+    .nice()
+    .range([height, margin.top]);
+
+  const yAxis = d3.axisLeft(yScale);
+
+  createTicks(yAxis, eventValue);
+
+  updateStyleButtonUp(eventValue, scope, yDomain);
+
+  updateStyleButtonDown(eventValue, scope, yDomain);
+
+  g.call(yAxis);
+
+  updateTicksPosition(g, eventValue);
+
+  domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
+
+  const circleContainer = createCircleContainer(domainNestedData, yDomain, eventValue);
 
   if (eventValue === 'Year') {
     d3.select('.up')
       .on('click', () => {
         if (d3.timeYear.offset(yDomain[1], 1) <= scope[1]) {
+          const oldDomainNestedData = domainNestedData;
           yDomain[0] = d3.timeYear.offset(yDomain[0], 1);
           yDomain[1] = d3.timeYear.offset(yDomain[1], 1);
-          d3.selectAll('.circleContainer').remove();
-          d3.selectAll('.xaxis').remove();
-          domainNestedData = [];
-          nestedData.forEach((d) => {
-            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
-              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
-              domainNestedData.push(d);
-            }
-          });
-          createTimeline(eventValue, scope, domainNestedData,
-            nestedData, height, width, margin, yDomain);
+          updateStyleButtonUp(eventValue, scope, yDomain);
+          updateStyleButtonDown(eventValue, scope, yDomain);
+          domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
+          updateTimeline(oldDomainNestedData, domainNestedData, eventValue,
+            yAxis, yScale, yDomain, width, height, margin);
         }
       });
     d3.select('.down')
       .on('click', () => {
         if (d3.timeYear.offset(yDomain[0], -1) >= scope[0]) {
+          const oldDomainNestedData = domainNestedData;
           yDomain[0] = d3.timeYear.offset(yDomain[0], -1);
           yDomain[1] = d3.timeYear.offset(yDomain[1], -1);
-          d3.selectAll('.circleContainer').remove();
-          d3.selectAll('.xaxis').remove();
-          domainNestedData = [];
-          nestedData.forEach((d) => {
-            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
-              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
-              domainNestedData.push(d);
-            }
-          });
-          createTimeline(eventValue, scope, domainNestedData,
-            nestedData, height, width, margin, yDomain);
+          updateStyleButtonUp(eventValue, scope, yDomain);
+          updateStyleButtonDown(eventValue, scope, yDomain);
+          domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
+          updateTimeline(oldDomainNestedData, domainNestedData, eventValue,
+            yAxis, yScale, yDomain, width, height, margin);
         }
       });
   } else if (eventValue === 'Month') {
@@ -389,17 +422,7 @@ function createTimeline (eventValue, scope, domainNestedData, nestedData, height
         if (d3.timeMonth.offset(yDomain[1], 1) <= scope[1]) {
           yDomain[0] = d3.timeMonth.offset(yDomain[0], 1);
           yDomain[1] = d3.timeMonth.offset(yDomain[1], 1);
-          d3.selectAll('.circleContainer').remove();
-          d3.selectAll('.xaxis').remove();
-          domainNestedData = [];
-          nestedData.forEach((d) => {
-            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
-              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
-              domainNestedData.push(d);
-            }
-          });
-          createTimeline(eventValue, scope, domainNestedData,
-            nestedData, height, width, margin, yDomain);
+          createDomainNestedData(domainNestedData, nestedData, yDomain);
         }
       });
     d3.select('.down')
@@ -407,17 +430,7 @@ function createTimeline (eventValue, scope, domainNestedData, nestedData, height
         if (d3.timeMonth.offset(yDomain[0], -1) >= scope[0]) {
           yDomain[0] = d3.timeMonth.offset(yDomain[0], -1);
           yDomain[1] = d3.timeMonth.offset(yDomain[1], -1);
-          d3.selectAll('.circleContainer').remove();
-          d3.selectAll('.xaxis').remove();
-          domainNestedData = [];
-          nestedData.forEach((d) => {
-            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
-              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
-              domainNestedData.push(d);
-            }
-          });
-          createTimeline(eventValue, scope, domainNestedData,
-            nestedData, height, width, margin, yDomain);
+          createDomainNestedData(domainNestedData, nestedData, yDomain);
         }
       });
   } else if (eventValue === 'Week') {
@@ -426,17 +439,7 @@ function createTimeline (eventValue, scope, domainNestedData, nestedData, height
         if (d3.timeWeek.offset(yDomain[1], 1) <= scope[1]) {
           yDomain[0] = d3.timeWeek.offset(yDomain[0], 2);
           yDomain[1] = d3.timeWeek.offset(yDomain[1], 2);
-          d3.selectAll('.circleContainer').remove();
-          d3.selectAll('.xaxis').remove();
-          domainNestedData = [];
-          nestedData.forEach((d) => {
-            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
-              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
-              domainNestedData.push(d);
-            }
-          });
-          createTimeline(eventValue, scope, domainNestedData,
-            nestedData, height, width, margin, yDomain);
+          createDomainNestedData(domainNestedData, nestedData, yDomain);
         }
       });
     d3.select('.down')
@@ -444,30 +447,21 @@ function createTimeline (eventValue, scope, domainNestedData, nestedData, height
         if (d3.timeWeek.offset(yDomain[0], -1) >= scope[0]) {
           yDomain[0] = d3.timeWeek.offset(yDomain[0], -2);
           yDomain[1] = d3.timeWeek.offset(yDomain[1], -2);
-          d3.selectAll('.circleContainer').remove();
-          d3.selectAll('.xaxis').remove();
-          domainNestedData = [];
-          nestedData.forEach((d) => {
-            if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
-              ((new Date(Date.parse(d.key))) <= yDomain[1])) {
-              domainNestedData.push(d);
-            }
-          });
-          createTimeline(eventValue, scope, domainNestedData,
-            nestedData, height, width, margin, yDomain);
+          createDomainNestedData(domainNestedData, nestedData, yDomain);
         }
       });
   }
 
-  addCircle(dateFormatYear, dateFormatMonthYear, width, yScale, circleContainer, eventValue);
-  zoomEvent(circleContainer, height, width, margin);
-  addSmallPicture(nestedData, domainNestedData, width, yScale, eventValue);
+  addCircle(height, width, yScale, circleContainer, eventValue, margin);
+  // zoomEvent(circleContainer, height, width, margin);
+  // addSmallPicture(nestedData, domainNestedData, width, yScale, eventValue);
 }
 
-function addCircle (dateFormatYear, dateFormatMonthYear, width, yScale, circleContainer, eventValue) {
-  circleContainer.append('circle')
+function addCircle (height, width, yScale, circleContainer, eventValue, margin) {
+  circleContainer
+    .append('circle')
     .attr('id', (d) => {
-      return dateFormatMonthYear(Date.parse(d.key));
+      return `c${getDateFormat(eventValue)(Date.parse(d.key))}`;
     })
     .attr('class', 'yearPoint')
     .attr('r', (d) => {
@@ -475,11 +469,21 @@ function addCircle (dateFormatYear, dateFormatMonthYear, width, yScale, circleCo
     })
     .attr('cx', (width / 2))
     .attr('cy', (d) => {
-      return yScale(new Date(Date.parse(d.key)));
+      if (yScale(new Date(Date.parse(d.key))) > (height / 2)) {
+        return margin.top;
+      }
+      return height - margin.bottom;
     })
     .attr('fill', 'white')
     .attr('stroke', 'green')
     .attr('stroke-width', 1.5);
+
+  d3.selectAll('circle')
+    .transition()
+      .duration(700)
+      .attr('cy', (d) => {
+        return yScale(new Date(Date.parse(d.key)));
+      });
 }
 
 function zoomEvent(circleContainer, height, width, margin) {
@@ -508,7 +512,7 @@ function zoomEvent(circleContainer, height, width, margin) {
     const scale = width / (3 * d3.select(this).attr('r'));
     if (active.node() === this) {
       reset();
-      d3.select('#main_svg').select('.xaxis')
+      d3.select('#main_svg').select('.axis')
         .style('display', 'block');
       d3.select('#main_svg').selectAll('circle')
         .style('display', 'block')

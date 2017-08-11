@@ -14,15 +14,15 @@
   fill: green;
 }
 
-.xaxis line,
-.xaxis path {
+.axis line,
+.axis path {
   fill: green;
   border-color: white;
   stroke: #fff;
   shape-rendering: crispEdges;
 }
 
-.xaxis .tick line {
+.axis .tick line {
   stroke:green;
 }
 
