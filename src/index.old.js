@@ -157,7 +157,7 @@ const makeViz = (data) => {
           ((height / 2) - (y * scale)) + (margin.top / 2)];
         svg.transition()
           .duration(800)
-          .call(zoom.transform, d3.zoomIdentity.translate(0, translate[1]).scale(scale));
+          .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
         svg.selectAll('circle')
           .style('display', 'none')
           .attr('stroke-width', d3.select(this).attr('stroke-width') / (scale / 4));
