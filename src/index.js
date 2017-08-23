@@ -26,126 +26,116 @@ import './style/style.scss';
 // Json access token file
 import json from './access_token.json';
 
-// Function to load your personal data from instagram
-// It needs the access token of your account to make it works fine.
-// In that function, there are a function call to load Flickr relative data
-function loadInstagramData (token) {
-  const loadInformation = $.ajax({
-    url: 'https://api.instagram.com/v1/users/self/media/recent',
-    dataType: 'jsonp',
-    method: 'GET',
-    data: { access_token: token }
-  });
-
-  loadInformation.done((d) => {
-    const instagramDataArray = [];
-    const instagramTagsArray = [];
-    const instagramTagsDateArray = [];
-    d.data.forEach((img) => {
-      const tmpTagsArray = img.tags;
-      const realDate = new Date(img.created_time * 1000);
-      tmpTagsArray.forEach((tag) => {
-        instagramTagsArray.push(tag);
-        instagramTagsDateArray.push(realDate);
-        instagramDataArray.push({
-          relatedTag: tag,
-          date: realDate,
-          image: img.images.standard_resolution.url,
-          frequency: 1
-        });
-      });
-    });
-    loadFlickrData(instagramDataArray, instagramTagsArray, instagramTagsDateArray);
-    console.log('Instagram data are loaded!');
-  });
-
-  loadInformation.fail(() => {
-    console.log("Instagram aren't loaded");
-  });
-}
-
-// Function to load a relative set of photos from Flickr
-// You need to have an array for each important piece of information :
-// - dataArray : Contains all the Instagram object you obtain with ajax call
-// - tagsArray : Contains only all the tags from your Instagram posts
-// - tagsDateArray : Contains only all the date for each of your Instagram posts
-// At the end of this function, there is a function call to begin datavisualisation building
-function loadFlickrData(dataArray, tagsArray, tagsDateArray) {
-  const findMatchTags = $.map(tagsArray, (tag) => {
-    return $.ajax({
-      type: 'GET',
-      dataType: 'jsonp',
-      url: 'http://api.flickr.com/services/feeds/photos_public.gne',
-      data: `tags=${tag}&tagmode=any&format=json&jsoncallback=?`
-    });
-  });
-
-  $.when(...findMatchTags).done(function() {
-    for (let i = 0; i < arguments.length; i++) {
-      arguments[i][0].items.forEach((photos) => {
-        const tmpStringTagsArray = photos.tags.split(' ');
-        tmpStringTagsArray.forEach((stringTag) => {
-          const result = dataArray.filter((obj) => {
-            return obj.relatedTag === stringTag;
-          });
-          if (result.length > 0) {
-            dataArray.forEach((obj) => {
-              obj.frequency++;
-            });
-          } else {
-            dataArray.push({
-              relatedTag: stringTag,
-              frequency: 1,
-              image: photos.media.m,
-              date: tagsDateArray[i],
-              floorYearDate: d3.timeHour.offset(d3.timeYear.floor(tagsDateArray[i]), 2),
-              floorMonthDate: d3.timeHour.offset(d3.timeMonth.floor(tagsDateArray[i]), 2),
-              floorDayDate: d3.timeHour.offset(d3.timeDay.floor(tagsDateArray[i]), 2)
-            });
-          }
-        });
-      });
-    }
-    makeDataviz(dataArray);
-  });
-}
-
 // Function to create a radio group button
 // Indeed, it allows you to change the scale of the timeline
 function createRadioGroup() {
-  const form = d3.select('#app').append('div')
-    .attr('id', 'form');
+  const radioGroupButton = d3.select('#app').append('div')
+    .attr('id', 'rgb');
 
-  form.append('input')
+  radioGroupButton.append('input')
     .attr('id', 'r1')
     .attr('type', 'radio')
     .attr('name', 'radioButton')
     .attr('value', 'Year')
     .attr('checked', 'checked');
 
-  form.append('label')
+  radioGroupButton.append('label')
     .attr('for', 'r1')
     .text('Year');
 
-  form.append('input')
+  radioGroupButton.append('input')
     .attr('id', 'r2')
     .attr('type', 'radio')
     .attr('name', 'radioButton')
     .attr('value', 'Month');
 
-  form.append('label')
+  radioGroupButton.append('label')
     .attr('for', 'r2')
     .text('Month');
 
-  form.append('input')
+  radioGroupButton.append('input')
     .attr('id', 'r3')
     .attr('type', 'radio')
     .attr('name', 'radioButton')
     .attr('value', 'Week');
 
-  form.append('label')
+  radioGroupButton.append('label')
     .attr('for', 'r3')
     .text('Week');
+}
+
+// Function to nest by date and image all the data from Instagram and Flickr Ajax calls
+// To use it, you need an array which contains all your json data
+// Moreover, you also need the scale value to determine with which scale you want to nest your data
+// At the end, you obtain a new data array nested by date first, and by photos then.
+function nestData (dataArray, scaleValue) {
+  let res = null;
+
+  dataArray.forEach((d) => {
+    d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
+    d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
+    d.floorWeekDate = d3.timeHour.offset(d3.timeWeek.floor(d.date), 2);
+  });
+
+  if (scaleValue === 'Year') {
+    res = d3.nest().key((d) => {
+      return d.floorYearDate;
+    })
+    .key((d) => {
+      return d.image;
+    })
+    .entries(dataArray);
+  } else if (scaleValue === 'Month') {
+    res = d3.nest().key((d) => {
+      return d.floorMonthDate;
+    })
+    .key((d) => {
+      return d.image;
+    })
+    .entries(dataArray);
+  } else if (scaleValue === 'Week') {
+    res = d3.nest().key((d) => {
+      return d.floorWeekDate;
+    })
+    .key((d) => {
+      return d.image;
+    })
+    .entries(dataArray);
+  }
+
+  return res;
+}
+
+// Function to nest by date all the data from Instagram and Flickr Ajax calls
+// To use it, you need an array which contains all your json data
+// Moreover, you also need the scale value to determine with which scale you want to nest your data
+// At the end, you obtain a new data array nested by date first, and by photos then.
+function nestDataByDate (dataArray, scaleValue) {
+  let res = null;
+
+  dataArray.forEach((d) => {
+    d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
+    d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
+    d.floorWeekDate = d3.timeHour.offset(d3.timeWeek.floor(d.date), 2);
+  });
+
+  if (scaleValue === 'Year') {
+    res = d3.nest().key((d) => {
+      return d.floorYearDate;
+    })
+    .entries(dataArray);
+  } else if (scaleValue === 'Month') {
+    res = d3.nest().key((d) => {
+      return d.floorMonthDate;
+    })
+    .entries(dataArray);
+  } else if (scaleValue === 'Week') {
+    res = d3.nest().key((d) => {
+      return d.floorWeekDate;
+    })
+    .entries(dataArray);
+  }
+  return res;
 }
 
 // Function to create an arrow up button
@@ -166,129 +156,28 @@ function createNavButtonDown() {
     .attr('class', 'arrow down');
 }
 
-// Function to nest by date and image all the data from Instagram and Flickr Ajax calls
-// To use it, you need an array which contains all your json data
-// Moreover, you also need the scale value to determine with which scale you want to nest your data
-// At the end, you obtain a new data array nested by date first, and by photos then.
-function nestData (dataArray, scaleValue) {
-
-  dataArray.forEach((d) => {
-    d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
-    d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
-    d.floorWeekDate = d3.timeHour.offset(d3.timeWeek.floor(d.date), 2);
-  });
-
-  if (scaleValue === 'Year') {
-    return d3.nest().key((d) => {
-      return d.floorYearDate;
-    })
-    .key((d) => {
-      return d.image;
-    })
-    .entries(dataArray);
-  } else if (scaleValue === 'Month') {
-    return d3.nest().key((d) => {
-      return d.floorMonthDate;
-    })
-    .key((d) => {
-      return d.image;
-    })
-    .entries(dataArray);
-  } else if (scaleValue === 'Week') {
-    return d3.nest().key((d) => {
-      return d.floorWeekDate;
-    })
-    .key((d) => {
-      return d.image;
-    })
-    .entries(dataArray);
-  }
-}
-
-// Function to nest by date all the data from Instagram and Flickr Ajax calls
-// To use it, you need an array which contains all your json data
-// Moreover, you also need the scale value to determine with which scale you want to nest your data
-// At the end, you obtain a new data array nested by date first, and by photos then.
-function nestDataByDate (dataArray, scaleValue) {
-  dataArray.forEach((d) => {
-    d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
-    d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
-    d.floorWeekDate = d3.timeHour.offset(d3.timeWeek.floor(d.date), 2);
-  });
-
-  if (scaleValue === 'Year') {
-    return d3.nest().key((d) => {
-      return d.floorYearDate;
-    })
-    .entries(dataArray);
-  } else if (scaleValue === 'Month') {
-    return d3.nest().key((d) => {
-      return d.floorMonthDate;
-    })
-    .entries(dataArray);
-  } else if (scaleValue === 'Week') {
-    return d3.nest().key((d) => {
-      return d.floorWeekDate;
-    })
-    .entries(dataArray);
-  }
-}
-
 // Function to define the scope you use in your timeline.
 // To do it properly, you have use your nested data array.
 function defineScope(nestedData) {
   return d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
 }
 
+// Function to get the d3 time scale from the scale value
+function getD3TimeScale (scaleValue) {
+  if (scaleValue === 'Year') {
+    return d3.timeYear;
+  } else if (scaleValue === 'Month') {
+    return d3.timeMonth;
+  } else if (scaleValue === 'Week') {
+    return d3.timeWeek;
+  }
+  return null;
+}
+
 // Function to define the domain you want to show in your datavisualisation
 // For that, you need the scope of your nested data and the scale value
 function defineDomain(scope, scaleValue) {
-  if (scaleValue === 'Year') {
-    return [scope[0], d3.timeYear.offset(scope[0], 1)];
-  } else if (scaleValue === 'Month') {
-    return [scope[0], d3.timeMonth.offset(scope[0], 1)];
-  } else if (scaleValue === 'Week') {
-    return [scope[0], d3.timeWeek.offset(scope[0], 1)];
-  }
-}
-
-// Major function to build the datavisualisation
-// To build it, you need your nested data array
-// and all the functions used to create graphic elements
-function makeDataviz (dataArray) {
-  createRadioGroup();
-
-  let scaleValue = d3.selectAll('input[type=radio]').attr('value');
-
-  let nestedData = nestData(dataArray, scaleValue);
-
-  const svg = d3.select('#app').append('svg')
-    .attr('id', 'main_svg')
-    .attr('width', window.innerWidth - 10)
-    .attr('height', window.innerHeight - 70);
-
-  createNavButtonUp();
-
-  createNavButtonDown();
-
-  const margin = { top: 100, right: 0, bottom: 30, left: 0 };
-
-  const width = +svg.attr('width') - margin.left - margin.right;
-
-  const height = +svg.attr('height') - margin.top - margin.bottom;
-
-  createTimeline(dataArray, scaleValue, null, null, nestedData, height, width, margin, null, null);
-
-  d3.selectAll('input[type=radio]').on('change', function () {
-    nestedData = nestData(dataArray, this.value);
-
-    d3.select('.axis').remove();
-    d3.selectAll('.circleContainer').remove();
-
-    scaleValue = this.value;
-
-    createTimeline(dataArray, scaleValue, null, null, nestedData, height, width, margin, null, null);
-  });
+  return [scope[0], getD3TimeScale(scaleValue).offset(scope[0], 1)];
 }
 
 // Function to get the format date from the selected scale value
@@ -304,16 +193,15 @@ function getDateFormat (scaleValue) {
   return null;
 }
 
-// Function to get the d3 time scale from the scale value
-function getD3TimeScale (scaleValue) {
-  if (scaleValue === 'Year') {
-    return d3.timeYear;
-  } else if (scaleValue === 'Month') {
-    return d3.timeMonth;
+// Function used to get css selector for the selected circle container
+// To get it, you need the date of the circle and the scale value selected.
+function getDateFormatSelector (scaleValue, d) {
+  if (scaleValue === 'Month') {
+    return `cc${(getDateFormat(scaleValue)(d)).replace('/', '')}`;
   } else if (scaleValue === 'Week') {
-    return d3.timeWeek;
+    return `cc${(getDateFormat(scaleValue)(d)).replace(/[\s.]/g, '')}`;
   }
-  return null;
+  return `cc${getDateFormat(scaleValue)(d)}`;
 }
 
 // Function to adjust domain
@@ -376,7 +264,6 @@ function updateTicksPosition (g, scaleValue) {
 }
 
 // Function to create the nested data for the domain which are visible in the datavisualisation
-
 function createDomainNestedData (domainNestedData, nestedData, yDomain) {
   domainNestedData = [];
 
@@ -387,17 +274,7 @@ function createDomainNestedData (domainNestedData, nestedData, yDomain) {
     }
   });
 
-
   return domainNestedData;
-}
-
-function getDateFormatSelector (scaleValue, d) {
-  if (scaleValue === 'Month') {
-    return `cc${(getDateFormat(scaleValue)(d)).replace('/', '')}`;
-  } else if (scaleValue === 'Week') {
-    return `cc${(getDateFormat(scaleValue)(d)).replace(/[\s.]/g, '')}`;
-  }
-  return `cc${getDateFormat(scaleValue)(d)}`;
 }
 
 // Function to create the circle container to display circles
@@ -416,129 +293,25 @@ function createCircleContainer (domainNestedData, yDomain, scaleValue) {
     });
 }
 
-// Function used to update the timeline after a click levent on a button
-function updateTimeline (nestedData, oldDomainNestedData, domainNestedData, scaleValue, yAxis, yScale, yDomain, width, height, margin, dataArray) {
-  const sameDomainData = [];
-  const oldDomainData = [];
-  const newDomainData = [];
+// Function to determine of the circle from the nested Data
+// Indeed, the size is proportional to the number of photos
+// Moreover, there is a threshold to define a minimal and a maximal scale
+function getCircleSize(nestedData, scaleValue) {
+  let sizeAdapt = 0;
 
-  oldDomainNestedData.forEach((d) => {
-    if (domainNestedData.indexOf(d.key) !== -1) {
-      sameDomainData.push(getDateFormat(scaleValue)(d.key));
-    } else {
-      oldDomainData.push(getDateFormat(scaleValue)(new Date(Date.parse(d.key))));
-    }
-  });
-
-  domainNestedData.forEach((d) => {
-    if (oldDomainNestedData.indexOf(d.key) === -1) {
-      newDomainData.push(d);
-    }
-  });
-
-  sameDomainData.forEach((d) => {
-    d3.select(`#c${d}`)
-      .attr('transform', 'translate(-100, 0)');
-  });
-
-  oldDomainData.forEach((d) => {
-    if (scaleValue === 'Month') {
-      d3.select(`#cc${d.replace('/', '')}`).remove();
-    } else if (scaleValue === 'Week') {
-      d3.select(`#cc${d.replace(/[\s.]/g, '')}`).remove();
-    } else {
-      d3.select(`#cc${d}`).remove();
-    }
-  });
-
-  yScale.domain(yDomain).nice();
-  d3.select('.axis').call(yAxis);
-  updateTicksPosition(d3.select('.axis'), scaleValue);
-
-  newDomainData.forEach(() => {
-    const circleContainer = createCircleContainer(domainNestedData, yDomain, scaleValue);
-    const nestedDataDate = nestDataByDate(dataArray, scaleValue)
-    addCircle(height, width, yScale, circleContainer, scaleValue, margin);
-    zoomEvent(circleContainer, height, width, margin);
-    addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue, height, margin);
-    createWordcloud(domainNestedData, scaleValue, nestedDataDate, circleContainer, yScale, width, height, margin);
-  });
-}
-
-function eventButton(yDomain, scope, domainNestedData, scaleValue, nestedData,
-  yAxis, yScale, width, height, margin, dataArray) {
-  d3.select('.up')
-    .on('click', () => {
-      if (getD3TimeScale(scaleValue).offset(yDomain[1], 1) <= scope[1]) {
-        const oldDomainNestedData = domainNestedData;
-        yDomain[0] = getD3TimeScale(scaleValue).offset(yDomain[0], 1);
-        yDomain[1] = getD3TimeScale(scaleValue).offset(yDomain[1], 1);
-        updateStyleButtonUp(scaleValue, scope, yDomain);
-        updateStyleButtonDown(scaleValue, scope, yDomain);
-        domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
-        updateTimeline(nestedData, oldDomainNestedData, domainNestedData, scaleValue,
-          yAxis, yScale, yDomain, width, height, margin, dataArray);
-      }
-    });
-  d3.select('.down')
-    .on('click', () => {
-      if (getD3TimeScale(scaleValue).offset(yDomain[0], -1) >= scope[0]) {
-        const oldDomainNestedData = domainNestedData;
-        yDomain[0] = getD3TimeScale(scaleValue).offset(yDomain[0], -1);
-        yDomain[1] = getD3TimeScale(scaleValue).offset(yDomain[1], -1);
-        updateStyleButtonUp(scaleValue, scope, yDomain);
-        updateStyleButtonDown(scaleValue, scope, yDomain);
-        domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
-        updateTimeline(nestedData, oldDomainNestedData, domainNestedData, scaleValue,
-          yAxis, yScale, yDomain, width, height, margin, dataArray);
-      }
-    });
-}
-
-// Function to create the timeline displayed in the datavisualisation
-function createTimeline (dataArray, scaleValue, scope, domainNestedData, nestedData, height, width, margin, yDomain) {
-  const g = d3.select('#main_svg')
-            .append('g')
-            .attr('class', 'axis')
-            .attr('transform', `translate(${((width / 2) + 3)},0)`);
-
-  if (scope === null) {
-    scope = defineScope(nestedData);
-    yDomain = defineDomain(scope, scaleValue);
+  if (scaleValue === 'Year') {
+    sizeAdapt = 1;
+  } else if (scaleValue === 'Month') {
+    sizeAdapt = 1.3;
+  } else if (scaleValue === 'Week') {
+    sizeAdapt = 1.3;
   }
-
-  adjustDomain(scaleValue, yDomain);
-
-  const yScale = d3.scaleTime()
-    .domain(yDomain)
-    .nice()
-    .range([height, margin.top]);
-
-  const yAxis = d3.axisLeft(yScale);
-
-  createTicks(yAxis, scaleValue);
-
-  updateStyleButtonUp(scaleValue, scope, yDomain);
-
-  updateStyleButtonDown(scaleValue, scope, yDomain);
-
-  g.call(yAxis);
-
-  updateTicksPosition(g, scaleValue);
-
-  domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
-
-  const circleContainer = createCircleContainer(domainNestedData, yDomain, scaleValue);
-
-  const nestedDataDate = nestDataByDate(dataArray, scaleValue);
-
-  eventButton(yDomain, scope, domainNestedData, scaleValue, nestedData,
-    yAxis, yScale, width, height, margin, dataArray);
-
-  addCircle(height, width, yScale, circleContainer, scaleValue, margin);
-  zoomEvent(circleContainer, height, width, margin);
-  addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue, height, margin);
-  createWordcloud(domainNestedData, scaleValue, nestedDataDate, circleContainer, yScale, width, height, margin);
+  if (nestedData.values.length > 70) {
+    return 70 * sizeAdapt;
+  } else if (nestedData.values.length < 40) {
+    return 40 * sizeAdapt;
+  }
+  return nestedData.values.length * sizeAdapt;
 }
 
 // Function used to add circles which represent the date when you have posted photos on Instagram
@@ -633,27 +406,6 @@ function zoomEvent(circleContainer, height, width, margin) {
   });
 }
 
-// Function to determine of the circle from the nested Data
-// Indeed, the size is proportional to the number of photos
-// Moreover, there is a threshold to define a minimal and a maximal scale
-function getCircleSize(nestedData, scaleValue) {
-  let sizeAdapt = 0;
-
-  if (scaleValue === 'Year') {
-    sizeAdapt = 1;
-  } else if (scaleValue === 'Month') {
-    sizeAdapt = 1.3;
-  } else if (scaleValue === 'Week') {
-    sizeAdapt = 1.3;
-  }
-  if (nestedData.values.length > 70) {
-    return 70 * sizeAdapt;
-  } else if (nestedData.values.length < 40) {
-    return 40 * sizeAdapt;
-  }
-  return nestedData.values.length * sizeAdapt;
-}
-
 // Function to add pictures around a circle for a defined date
 // This function use radial and collision detection modules
 function addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue, height, margin) {
@@ -732,14 +484,17 @@ function addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue
   });
 }
 
-function createWordcloud(domainNestedData, scaleValue, nestedDataDate, circleContainer, yScale, width, height, margin) {
+// Function to create a word cloud
+// To create it, we need to determine the TOP 5 frequency word for each circle
+function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
+  circleContainer, yScale, width, height, margin) {
   const cloudContainer = circleContainer.append('g')
     .attr('class', 'wordcloudContainer')
-    .attr('year', (d) => {
+    .attr('date', (d) => {
       return getDateFormatSelector(scaleValue, new Date(d.key));
     })
     .attr('transform', (d) => {
-      if (yScale(new Date(Date.parse(d.key))) > (height / 2)){
+      if (yScale(new Date(Date.parse(d.key))) > (height / 2)) {
         return `translate(${(width / 2)},${margin.top})`;
       }
       return `translate(${(width / 2)},${height - margin.bottom})`;
@@ -768,17 +523,17 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate, circleCon
 
   cloudContainer.each(function() {
     const self = d3.select(this);
-    const year = d3.select(this).attr('year');
-    let tmpArray = null;
+    const date = d3.select(this).attr('date');
+    let tmpArrayBis = null;
     wordsArray.forEach((o) => {
-      if (year === o.date) {
-        tmpArray = o.words;
+      if (date === o.date) {
+        tmpArrayBis = o.words;
       }
     });
 
     const layout = d3cloud()
       .size([110, 110])
-      .words(tmpArray.map((w) => {
+      .words(tmpArrayBis.map((w) => {
         return { text: w.tag, size: 8 };
       }))
       .rotate(() => { return 0; })
@@ -820,6 +575,260 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate, circleCon
       .transition()
       .duration(1000)
       .attr('transform', `translate(${(width / 2)},${yScale(new Date(Date.parse(d.key)))})`);
+  });
+}
+
+// Function used to update the timeline after a click levent on a button
+function updateTimeline (nestedData, oldDomainNestedData, domainNestedData,
+  scaleValue, yAxis, yScale, yDomain, width, height, margin, dataArray) {
+  const sameDomainData = [];
+  const oldDomainData = [];
+  const newDomainData = [];
+
+  oldDomainNestedData.forEach((d) => {
+    if (domainNestedData.indexOf(d.key) !== -1) {
+      sameDomainData.push(getDateFormat(scaleValue)(d.key));
+    } else {
+      oldDomainData.push(getDateFormat(scaleValue)(new Date(Date.parse(d.key))));
+    }
+  });
+
+  domainNestedData.forEach((d) => {
+    if (oldDomainNestedData.indexOf(d.key) === -1) {
+      newDomainData.push(d);
+    }
+  });
+
+  sameDomainData.forEach((d) => {
+    d3.select(`#c${d}`)
+      .attr('transform', 'translate(-100, 0)');
+  });
+
+  oldDomainData.forEach((d) => {
+    if (scaleValue === 'Month') {
+      d3.select(`#cc${d.replace('/', '')}`).remove();
+    } else if (scaleValue === 'Week') {
+      d3.select(`#cc${d.replace(/[\s.]/g, '')}`).remove();
+    } else {
+      d3.select(`#cc${d}`).remove();
+    }
+  });
+
+  yScale.domain(yDomain).nice();
+  d3.select('.axis').call(yAxis);
+  updateTicksPosition(d3.select('.axis'), scaleValue);
+
+  newDomainData.forEach(() => {
+    const circleContainer = createCircleContainer(domainNestedData, yDomain, scaleValue);
+    const nestedDataDate = nestDataByDate(dataArray, scaleValue);
+    addCircle(height, width, yScale, circleContainer, scaleValue, margin);
+    zoomEvent(circleContainer, height, width, margin);
+    addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue, height, margin);
+    createWordcloud(domainNestedData, scaleValue, nestedDataDate,
+      circleContainer, yScale, width, height, margin);
+  });
+}
+
+// Function to implement the event behaviour of each arrow button (up and down)
+function eventButton(yDomain, scope, domainNestedData, scaleValue, nestedData,
+  yAxis, yScale, width, height, margin, dataArray) {
+  d3.select('.up')
+    .on('click', () => {
+      if (getD3TimeScale(scaleValue).offset(yDomain[1], 1) <= scope[1]) {
+        const oldDomainNestedData = domainNestedData;
+        yDomain[0] = getD3TimeScale(scaleValue).offset(yDomain[0], 1);
+        yDomain[1] = getD3TimeScale(scaleValue).offset(yDomain[1], 1);
+        updateStyleButtonUp(scaleValue, scope, yDomain);
+        updateStyleButtonDown(scaleValue, scope, yDomain);
+        domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
+        updateTimeline(nestedData, oldDomainNestedData, domainNestedData, scaleValue,
+          yAxis, yScale, yDomain, width, height, margin, dataArray);
+      }
+    });
+  d3.select('.down')
+    .on('click', () => {
+      if (getD3TimeScale(scaleValue).offset(yDomain[0], -1) >= scope[0]) {
+        const oldDomainNestedData = domainNestedData;
+        yDomain[0] = getD3TimeScale(scaleValue).offset(yDomain[0], -1);
+        yDomain[1] = getD3TimeScale(scaleValue).offset(yDomain[1], -1);
+        updateStyleButtonUp(scaleValue, scope, yDomain);
+        updateStyleButtonDown(scaleValue, scope, yDomain);
+        domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
+        updateTimeline(nestedData, oldDomainNestedData, domainNestedData, scaleValue,
+          yAxis, yScale, yDomain, width, height, margin, dataArray);
+      }
+    });
+}
+
+// Function to create the timeline displayed in the datavisualisation
+function createTimeline (dataArray, scaleValue, scope, domainNestedData,
+  nestedData, height, width, margin, yDomain) {
+  const g = d3.select('#main_svg')
+            .append('g')
+            .attr('class', 'axis')
+            .attr('transform', `translate(${((width / 2) + 3)},0)`);
+
+  if (scope === null) {
+    scope = defineScope(nestedData);
+    yDomain = defineDomain(scope, scaleValue);
+  }
+
+  adjustDomain(scaleValue, yDomain);
+
+  const yScale = d3.scaleTime()
+    .domain(yDomain)
+    .nice()
+    .range([height, margin.top]);
+
+  const yAxis = d3.axisLeft(yScale);
+
+  createTicks(yAxis, scaleValue);
+
+  updateStyleButtonUp(scaleValue, scope, yDomain);
+
+  updateStyleButtonDown(scaleValue, scope, yDomain);
+
+  g.call(yAxis);
+
+  updateTicksPosition(g, scaleValue);
+
+  domainNestedData = createDomainNestedData(domainNestedData, nestedData, yDomain);
+
+  const circleContainer = createCircleContainer(domainNestedData, yDomain, scaleValue);
+
+  const nestedDataDate = nestDataByDate(dataArray, scaleValue);
+
+  eventButton(yDomain, scope, domainNestedData, scaleValue, nestedData,
+    yAxis, yScale, width, height, margin, dataArray);
+
+  addCircle(height, width, yScale, circleContainer, scaleValue, margin);
+  zoomEvent(circleContainer, height, width, margin);
+  addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue, height, margin);
+  createWordcloud(domainNestedData, scaleValue, nestedDataDate,
+    circleContainer, yScale, width, height, margin);
+}
+
+// Major function to build the datavisualisation
+// To build it, you need your nested data array
+// and all the functions used to create graphic elements
+function makeDataviz (dataArray) {
+  createRadioGroup();
+
+  let scaleValue = d3.selectAll('input[type=radio]').attr('value');
+
+  let nestedData = nestData(dataArray, scaleValue);
+
+  const svg = d3.select('#app').append('svg')
+    .attr('id', 'main_svg')
+    .attr('width', window.innerWidth - 10)
+    .attr('height', window.innerHeight - 70);
+
+  createNavButtonUp();
+
+  createNavButtonDown();
+
+  const margin = { top: 100, right: 0, bottom: 30, left: 0 };
+
+  const width = +svg.attr('width') - margin.left - margin.right;
+
+  const height = +svg.attr('height') - margin.top - margin.bottom;
+
+  createTimeline(dataArray, scaleValue, null, null, nestedData, height, width, margin, null, null);
+
+  d3.selectAll('input[type=radio]').on('change', function () {
+    nestedData = nestData(dataArray, this.value);
+
+    d3.select('.axis').remove();
+    d3.selectAll('.circleContainer').remove();
+
+    scaleValue = this.value;
+
+    createTimeline(dataArray, scaleValue, null, null, nestedData,
+      height, width, margin, null, null);
+  });
+}
+
+// Function to load a relative set of photos from Flickr
+// You need to have an array for each important piece of information :
+// - dataArray : Contains all the Instagram object you obtain with ajax call
+// - tagsArray : Contains only all the tags from your Instagram posts
+// - tagsDateArray : Contains only all the date for each of your Instagram posts
+// At the end of this function, there is a function call to begin datavisualisation building
+function loadFlickrData(dataArray, tagsArray, tagsDateArray) {
+  const findMatchTags = $.map(tagsArray, (tag) => {
+    return $.ajax({
+      type: 'GET',
+      dataType: 'jsonp',
+      url: 'http://api.flickr.com/services/feeds/photos_public.gne',
+      data: `tags=${tag}&tagmode=any&format=json&jsoncallback=?`
+    });
+  });
+
+  $.when(...findMatchTags).done(function() {
+    for (let i = 0; i < arguments.length; i++) {
+      arguments[i][0].items.forEach((photos) => {
+        const tmpStringTagsArray = photos.tags.split(' ');
+        tmpStringTagsArray.forEach((stringTag) => {
+          const result = dataArray.filter((obj) => {
+            return obj.relatedTag === stringTag;
+          });
+          if (result.length > 0) {
+            dataArray.forEach((obj) => {
+              obj.frequency++;
+            });
+          } else {
+            dataArray.push({
+              relatedTag: stringTag,
+              frequency: 1,
+              image: photos.media.m,
+              date: tagsDateArray[i],
+              floorYearDate: d3.timeHour.offset(d3.timeYear.floor(tagsDateArray[i]), 2),
+              floorMonthDate: d3.timeHour.offset(d3.timeMonth.floor(tagsDateArray[i]), 2),
+              floorDayDate: d3.timeHour.offset(d3.timeDay.floor(tagsDateArray[i]), 2)
+            });
+          }
+        });
+      });
+    }
+    makeDataviz(dataArray);
+  });
+}
+
+// Function to load your personal data from instagram
+// It needs the access token of your account to make it works fine.
+// In that function, there are a function call to load Flickr relative data
+function loadInstagramData (token) {
+  const loadInformation = $.ajax({
+    url: 'https://api.instagram.com/v1/users/self/media/recent',
+    dataType: 'jsonp',
+    method: 'GET',
+    data: { access_token: token }
+  });
+
+  loadInformation.done((d) => {
+    const instagramDataArray = [];
+    const instagramTagsArray = [];
+    const instagramTagsDateArray = [];
+    d.data.forEach((img) => {
+      const tmpTagsArray = img.tags;
+      const realDate = new Date(img.created_time * 1000);
+      tmpTagsArray.forEach((tag) => {
+        instagramTagsArray.push(tag);
+        instagramTagsDateArray.push(realDate);
+        instagramDataArray.push({
+          relatedTag: tag,
+          date: realDate,
+          image: img.images.standard_resolution.url,
+          frequency: 1
+        });
+      });
+    });
+    loadFlickrData(instagramDataArray, instagramTagsArray, instagramTagsDateArray);
+    console.log('Instagram data are loaded!');
+  });
+
+  loadInformation.fail(() => {
+    console.log("Instagram aren't loaded");
   });
 }
 
