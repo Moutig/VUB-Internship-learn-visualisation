@@ -58,7 +58,7 @@ label + input[type=radio] + label {
   border-left: solid 3px #332f35;
 }
 
-#form {
+#rgb {
   border: solid 3px #332f35;
   display: inline-block;
   border-radius: 10px;
@@ -74,6 +74,14 @@ label + input[type=radio] + label {
   position: absolute;
   right: 0;
   margin-right: 5%;
+}
+
+.arrow_inactive_up{
+  display:none;
+}
+
+.arrow_inactive_down{
+  display:none;
 }
 
 .up {

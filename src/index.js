@@ -71,12 +71,14 @@ function createRadioGroup() {
 function nestData (dataArray, scaleValue) {
   let res = null;
 
+  // Definition of floor date for each available scale
   dataArray.forEach((d) => {
     d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
     d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
     d.floorWeekDate = d3.timeHour.offset(d3.timeWeek.floor(d.date), 2);
   });
 
+  // Group Instagram and Flickr data by (selected scale) date and image.
   if (scaleValue === 'Year') {
     res = d3.nest().key((d) => {
       return d.floorYearDate;
@@ -113,12 +115,14 @@ function nestData (dataArray, scaleValue) {
 function nestDataByDate (dataArray, scaleValue) {
   let res = null;
 
+  // Definition of floor date for each available scale
   dataArray.forEach((d) => {
     d.floorYearDate = d3.timeHour.offset(d3.timeYear.floor(d.date), 2);
     d.floorMonthDate = d3.timeHour.offset(d3.timeMonth.floor(d.date), 2);
     d.floorWeekDate = d3.timeHour.offset(d3.timeWeek.floor(d.date), 2);
   });
 
+  // Group Instagram and Flickr data by (selected scale) date and image.
   if (scaleValue === 'Year') {
     res = d3.nest().key((d) => {
       return d.floorYearDate;
@@ -162,7 +166,7 @@ function defineScope(nestedData) {
   return d3.extent(nestedData, (d) => { return new Date(Date.parse(d.key)); });
 }
 
-// Function to get the d3 time scale from the scale value
+// Function to get the d3 time scale function from the scale value
 function getD3TimeScale (scaleValue) {
   if (scaleValue === 'Year') {
     return d3.timeYear;
@@ -208,6 +212,8 @@ function getDateFormatSelector (scaleValue, d) {
 // Indeed, it prevents infinite date which trigger some errors
 // You need the domain of your timeline and the selected scale value
 function adjustDomain (scaleValue, yDomain) {
+  // Condition to check if there is only one picture posted on instagram.
+  // In this case, we need to increase the original domain to avoid infinite date errors
   if (getDateFormat(scaleValue)(yDomain[0]) === getDateFormat(scaleValue)(yDomain[1])) {
     yDomain[1] = getD3TimeScale(scaleValue).offset(yDomain[1], 1);
   }
@@ -216,12 +222,11 @@ function adjustDomain (scaleValue, yDomain) {
 // Function to create ticks which display date labels
 // To use it, you need the graphical axis and the selected scale value
 function createTicks(yAxis, scaleValue) {
-  return yAxis.ticks(getD3TimeScale(scaleValue))
-    .tickFormat(getDateFormat(scaleValue));
+  return yAxis.ticks(getD3TimeScale(scaleValue)).tickFormat(getDateFormat(scaleValue));
 }
 
 // Function to update the style of the up button
-// It allows you to change the style of the button after a click on it.
+// It allows you to change the style of all button after a click on it.
 function updateStyleButtonUp (scaleValue, scope, yDomain) {
   if (getD3TimeScale(scaleValue).offset(yDomain[1], 1) <= scope[1]) {
     d3.select('.up').style('border-bottom', '15px solid green');
@@ -231,7 +236,7 @@ function updateStyleButtonUp (scaleValue, scope, yDomain) {
 }
 
 // Function to update the style of the down button
-// It allows you to change the style of the button after a click on it.
+// It allows you to change the style of all button after a click on it.
 function updateStyleButtonDown (scaleValue, scope, yDomain) {
   if (getD3TimeScale(scaleValue).offset(yDomain[0], -1) >= scope[0]) {
     d3.select('.down').style('border-top', '15px solid green');
@@ -245,7 +250,7 @@ function updateTicksPosition (g, scaleValue) {
   if (scaleValue === 'Year') {
     g.selectAll('.tick text')
       .attr('transform', () => {
-        return 'translate(-115,0) rotate(20)';
+        return 'translate(-125,0) rotate(20)';
       })
       .attr('class', 'ticktext');
   } else if (scaleValue === 'Month') {
@@ -267,6 +272,7 @@ function updateTicksPosition (g, scaleValue) {
 function createDomainNestedData (domainNestedData, nestedData, yDomain) {
   domainNestedData = [];
 
+  // Loop to obtain only nested data which are in the selected domain
   nestedData.forEach((d) => {
     if ((new Date(Date.parse(d.key)) >= yDomain[0]) &&
       ((new Date(Date.parse(d.key))) <= yDomain[1])) {
@@ -299,6 +305,7 @@ function createCircleContainer (domainNestedData, yDomain, scaleValue) {
 function getCircleSize(nestedData, scaleValue) {
   let sizeAdapt = 0;
 
+  // Definition of a variable used to adapt the change of scale
   if (scaleValue === 'Year') {
     sizeAdapt = 1;
   } else if (scaleValue === 'Month') {
@@ -306,6 +313,8 @@ function getCircleSize(nestedData, scaleValue) {
   } else if (scaleValue === 'Week') {
     sizeAdapt = 1.3;
   }
+
+  // Condition to adapt the circle size between a 40 and 70 px threshold
   if (nestedData.values.length > 70) {
     return 70 * sizeAdapt;
   } else if (nestedData.values.length < 40) {
@@ -321,7 +330,7 @@ function addCircle (height, width, yScale, circleContainer, scaleValue, margin) 
     .attr('id', (d) => {
       return `c${getDateFormat(scaleValue)(Date.parse(d.key))}`;
     })
-    .attr('class', 'yearPoint')
+    .attr('class', 'dateCircle')
     .attr('r', (d) => {
       return getCircleSize(d, scaleValue);
     })
@@ -336,6 +345,7 @@ function addCircle (height, width, yScale, circleContainer, scaleValue, margin) 
     .attr('stroke', 'green')
     .attr('stroke-width', 1.5);
 
+  // Animation to move circles in the same time than click on arrow button
   d3.selectAll('circle')
     .transition()
       .duration(1000)
@@ -346,8 +356,10 @@ function addCircle (height, width, yScale, circleContainer, scaleValue, margin) 
 
 // Function used to zoom into a specific circle (specific date)
 function zoomEvent(circleContainer, height, width, margin) {
+  // Variable used to define on which circle we zoom in
   let active = d3.select(null);
 
+  // Function used after a zoom event
   function zoomed() {
     d3.select('#main_svg').style('stroke-width', `${1 / d3.event.transform.k}px`);
     d3.select('#main_svg').attr('transform', d3.event.transform);
@@ -357,6 +369,7 @@ function zoomEvent(circleContainer, height, width, margin) {
     .scaleExtent([0.5, 5])
     .on('zoom', zoomed);
 
+  // Function used to zoom out after a click on an active circle
   function reset() {
     active.classed('active', false);
     active = d3.select(null);
@@ -365,43 +378,154 @@ function zoomEvent(circleContainer, height, width, margin) {
       .call(zoom.transform, d3.zoomIdentity);
   }
 
-  d3.selectAll('.yearPoint').on('click', function () {
+  // Several actions relative to zoom event
+  d3.selectAll('.dateCircle').on('click', function () {
+    // Definition of circle position and scale we will use to zoom in
     const x = d3.select(this).attr('cx');
     const y = d3.select(this).attr('cy');
-    const scale = width / (3 * d3.select(this).attr('r'));
-    if (active.node() === this) {
+    const scale = width / (3.9 * d3.select(this).attr('r'));
+    // Actions to zoom out
+    if (active.node() !== null) {
       reset();
-      d3.select('#main_svg').select('.axis')
-        .style('display', 'block');
+      // Change circle border and display again non active circles
       d3.select('#main_svg').selectAll('circle')
         .style('display', 'block')
-        .attr('transform', 'translate(0,0)')
         .attr('stroke-width', 1.5);
-      d3.select('#main_svg').selectAll('.tick line')
-        .style('display', 'block');
+      // Enable action on radio group button
+      d3.select('#none1')
+        .attr('id', 'r1');
+      d3.select('#none2')
+        .attr('id', 'r2');
+      d3.select('#none3')
+        .attr('id', 'r3');
+      // Display arrow buttons
+      d3.select('.arrow_inactive_up')
+        .attr('class', 'arrow up');
+      d3.select('.arrow_inactive_down')
+        .attr('class', 'arrow down');
+      // Display date labels
       d3.select('#main_svg').selectAll('.ticktext')
         .style('display', 'block');
-      d3.select('#main_svg').select('.curvedtext')
-        .style('display', 'none');
     } else {
+      // Change the active node
       active.classed('active', false);
       active = d3.select(this).classed('active', true);
       const translate = [((width / 2) - (scale * x)),
         ((height / 2) - (y * scale)) + (margin.top / 2)];
+      // Zoom transition
       d3.select('#main_svg').transition()
         .duration(800)
         .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
-      d3.select('#main_svg').selectAll('circle')
-        .style('display', 'none')
-        .attr('stroke-width', d3.select(this).attr('stroke-width') / (scale / 4));
-      d3.select('#main_svg').selectAll('.tick line')
-        .style('display', 'none');
-      d3.select('#main_svg').selectAll('.tick text')
-        .style('display', 'none');
-      d3.select('#main_svg').select('.active')
-        .style('display', 'block');
-      d3.select('#main_svg').selectAll('.ring')
-        .style('display', 'block');
+      // Disable radio Group Button
+      d3.select('#r1')
+        .attr('id', 'none1');
+      d3.select('#r2')
+        .attr('id', 'none2');
+      d3.select('#r3')
+        .attr('id', 'none3');
+      // Hide arrow buttons
+      d3.select('.up')
+        .attr('class', 'arrow_inactive_up');
+      d3.select('.down')
+        .attr('class', 'arrow_inactive_down');
+      // Hide date labels
+      d3.selectAll('.ticktext')
+        .attr('display', 'none');
+    }
+  });
+}
+
+// Function used to zoom into a specific image
+function zoomEventPic(height, width, margin) {
+  // Variable used to define on which image we zoom in
+  let active = d3.select(null);
+
+  // Function used after a zoom event
+  function zoomed() {
+    d3.select('#main_svg').style('stroke-width', `${1 / d3.event.transform.k}px`);
+    d3.select('#main_svg').attr('transform', d3.event.transform);
+  }
+
+  const zoom = d3.zoom()
+    .scaleExtent([0.5, 5])
+    .on('zoom', zoomed);
+
+  // Function used to zoom out after a click on an active circle
+  function reset() {
+    active.classed('active', false);
+    active = d3.select(null);
+  }
+
+  // Several actions relative to click event
+  d3.selectAll('.pic').on('click', function () {
+    // Definition of image position and scale we will use to zoom in
+    const x = d3.select(this).node().getBoundingClientRect().x;
+    const y = d3.select(this).node().getBoundingClientRect().y - (margin.top / 3);
+    const scale = 12;
+    // Actions to zoom out
+    if (active.node() !== null) {
+      reset();
+      // Display all pictures hidden
+      d3.selectAll('.pic')
+        .attr('display', 'block');
+      // Enable actions on radio group button
+      d3.select('#none1')
+        .attr('id', 'r1');
+      d3.select('#none2')
+        .attr('id', 'r2');
+      d3.select('#none3')
+        .attr('id', 'r3');
+      // Display arrow buttons
+      d3.select('.arrow_inactive_up')
+        .attr('class', 'arrow up');
+      d3.select('.arrow_inactive_down')
+        .attr('class', 'arrow down');
+      // Display timeline
+      d3.select('.axis')
+        .attr('display', 'block');
+      // Display all circles
+      d3.selectAll('circle')
+        .attr('display', 'block');
+      // Display wordcloud and date labels
+      d3.selectAll('text')
+        .attr('display', 'block');
+    } else {
+      // Change the active node
+      active.classed('active', false);
+      active = d3.select(this).classed('active', true);
+      const translate = [((width / 2) - ((scale * x) + 10)),
+        ((height / 2) - (y * scale)) + (margin.top / 2)];
+      // Zoom in pictures
+      d3.select('#main_svg').transition()
+        .duration(800)
+        .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+      // Hide all pictures
+      d3.selectAll('.pic')
+        .attr('display', 'none');
+      // Show only the active one
+      d3.select('.active')
+        .attr('display', 'block');
+      // Disable actions on radio group button
+      d3.select('#r1')
+        .attr('id', 'none1');
+      d3.select('#r2')
+        .attr('id', 'none2');
+      d3.select('#r3')
+        .attr('id', 'none3');
+      // Hide arrow buttons
+      d3.select('.up')
+        .attr('class', 'arrow_inactive_up');
+      d3.select('.down')
+        .attr('class', 'arrow_inactive_down');
+      // Hide timeline
+      d3.select('.axis')
+        .attr('display', 'none');
+      // Hide all circles
+      d3.selectAll('circle')
+        .attr('display', 'none');
+      // Hide wordcloud and date labels
+      d3.selectAll('text')
+        .attr('display', 'none');
     }
   });
 }
@@ -409,18 +533,20 @@ function zoomEvent(circleContainer, height, width, margin) {
 // Function to add pictures around a circle for a defined date
 // This function use radial and collision detection modules
 function addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue, height, margin) {
-  const imageWidth = 6;
-  const imageHeight = 6;
+  const imageWidth = 7;
+  const imageHeight = 7;
 
+  // Collision detection is active for a square
   const collide = d3collide(() => {
     return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]];
   })
-    .strength(0.25)
+    .strength(0.3)
     .iterations(5);
 
   const concatRadialData = [];
 
-  nestedData.forEach((d) => {
+  // ConcatRadialData : data for pictures in the right domain
+  domainNestedData.forEach((d) => {
     d.values.forEach((d2) => {
       concatRadialData.push(d2);
     });
@@ -434,40 +560,53 @@ function addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue
   const picture = circle
     .selectAll('.pictures')
     .data((d) => {
+      // Condition to start circles animations
       if (yScale(new Date(Date.parse(d.key))) > (height / 2)) {
         const radial = d3radial.radial()
           .center([(width / 2), margin.top])
           .size([getCircleSize(d, scaleValue) + 20, getCircleSize(d, scaleValue) + 20]);
-        return radial(d.values);
+        return radial(d.values).map((e) => {
+          e.tx = e.x;
+          e.ty = e.y;
+          return e;
+        });
       }
       const radial = d3radial.radial()
         .center([(width / 2), height - margin.bottom])
         .size([getCircleSize(d, scaleValue) + 20, getCircleSize(d, scaleValue) + 20]);
-      return radial(d.values);
+      return radial(d.values).map((e) => {
+        e.tx = e.x;
+        e.ty = e.y;
+        return e;
+      });
     });
 
 
   const circleEnter = picture.enter();
 
+  // Creation of all pictures
   const imageEnter = circleEnter
     .append('image')
     .attr('class', 'pic')
     .attr('xlink:href', (d) => {
       return d.key;
     })
-    .attr('width', 15)
-    .attr('height', 15);
+    .attr('width', 20)
+    .attr('height', 20);
 
+  // Function called when ticks event is triggered
   function updateNetwork() {
     imageEnter
-      .attr('transform', (d) => { return `translate(${(d.x - imageWidth)},${(d.y - imageHeight)})`; });
+      .attr('transform', (d) => { return `translate(${(d.x - (imageWidth * 1.5))},${(d.y - (imageHeight * 1.5))})`; });
   }
 
+  // Application of forces (collision detection)
   d3.forceSimulation(concatRadialData)
-    .velocityDecay(0.6)
+    .velocityDecay(0.8)
     .force('collide', collide)
     .on('tick', updateNetwork);
 
+  // Animation for circles
   domainNestedData.map((d) => {
     if (yScale(new Date(Date.parse(d.key))) > (height / 2)) {
       return d3.select(`#${getDateFormatSelector(scaleValue, new Date(d.key))}`)
@@ -482,12 +621,60 @@ function addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue
       .duration(1000)
       .attr('transform', `translate(0,${yScale(new Date(Date.parse(d.key))) - (height - margin.bottom)})`);
   });
+
+  zoomEventPic(height, width, margin);
+}
+
+// Function to show related pictures from the selected word in the wordcloud
+function hilightWordsAndPictures() {
+  let wordSelected = null;
+  let opacity = null;
+  let active = d3.select(null);
+
+  // Define actions after a click on an element form the wordcloud
+  d3.selectAll('.wordcloudContainer text')
+    .on('click', function () {
+      // Click on the same word and reset to orginal style
+      if (d3.select(this).attr('class') === 'active') {
+        active.classed('active', false);
+        active = d3.select(null);
+        d3.selectAll('.pic')
+          .attr('opacity', 1);
+        d3.selectAll('.wordcloudContainer text')
+          .attr('opacity', 1);
+      } else {
+        // Click for the first time or on a different word
+        d3.selectAll('.wordcloudContainer text')
+          .attr('opacity', 0.1);
+        d3.select(this)
+          .attr('opacity', 1);
+        active.classed('active', false);
+        active = d3.select(this).classed('active', true);
+        wordSelected = d3.select(this).attr('value');
+        d3.selectAll('.pic')
+          .attr('opacity', (d) => {
+            const tmpArray = [];
+            d.values.forEach((d2) => {
+              tmpArray.push(d2.originalTag)
+              tmpArray.push(d2.relatedTag);
+            });
+            if (tmpArray.indexOf(wordSelected) !== -1 || wordSelected === null) {
+              opacity = 1;
+            } else {
+              opacity = 0.1;
+            }
+            return opacity;
+          });
+      }
+    });
 }
 
 // Function to create a word cloud
-// To create it, we need to determine the TOP 5 frequency word for each circle
+// To create it, we need to determine the TOP 7 frequency word for each circle
 function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
   circleContainer, yScale, width, height, margin) {
+
+  // Wordcloud Container creation
   const cloudContainer = circleContainer.append('g')
     .attr('class', 'wordcloudContainer')
     .attr('date', (d) => {
@@ -500,14 +687,16 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
       return `translate(${(width / 2)},${height - margin.bottom})`;
     });
 
+  // Color used for the words
   const color = d3.scaleOrdinal(d3.schemeCategory20);
 
   const wordsArray = [];
 
   const tmpArray = [];
 
+  // Selection of the 7 more frequent words per date
   nestedDataDate.forEach((d) => {
-    tmpArray.push(d.values.slice(0, 5));
+    tmpArray.push(d.values.slice(0, 7));
   });
 
   let tmpYear = null;
@@ -521,6 +710,7 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
     wordsArray.push({ words: tmpWordsArray, date: tmpYear });
   });
 
+  // Match top 7 more frequent words with the right circle
   cloudContainer.each(function() {
     const self = d3.select(this);
     const date = d3.select(this).attr('date');
@@ -531,6 +721,7 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
       }
     });
 
+    // Creation of the word cloud for each circle
     const layout = d3cloud()
       .size([110, 110])
       .words(tmpArrayBis.map((w) => {
@@ -545,16 +736,20 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
           .data(words)
           .enter()
           .append('text')
-          .style('font-size', () => { return `${10}px`; })
+          .style('font-size', () => { return `${9}px`; })
           .style('font-family', 'Comic Sans MS')
           .style('fill', (d, i) => { return color(i); })
           .attr('text-anchor', 'middle')
           .attr('transform', (d) => {
-            return `translate(${[d.x, d.y]}) rotate(${d.rotate})`;
+            return `translate(${[d.x * 0.95, d.y * 0.95]}) rotate(${d.rotate})`;
+          })
+          .attr('value', (d) => {
+            return d.text;
           })
           .text((d) => {
-            if (d.text.length > 5) {
-              return `${d.text.substring(0, 5)}...`;
+            // Splitting words when they're too long
+            if (d.text.length > 6) {
+              return `${d.text.substring(0, 6)}...`;
             }
             return d.text;
           });
@@ -562,6 +757,7 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
     layout.start();
   });
 
+  // Animation for all Wordcloud Container
   domainNestedData.map((d) => {
     if (yScale(new Date(Date.parse(d.key))) > (height / 2)) {
       return d3.select(`#${getDateFormatSelector(scaleValue, new Date(d.key))}`)
@@ -576,9 +772,12 @@ function createWordcloud(domainNestedData, scaleValue, nestedDataDate,
       .duration(1000)
       .attr('transform', `translate(${(width / 2)},${yScale(new Date(Date.parse(d.key)))})`);
   });
+
+  hilightWordsAndPictures();
 }
 
 // Function used to update the timeline after a click levent on a button
+// So we split the data in three part, old, same and new data in the domain
 function updateTimeline (nestedData, oldDomainNestedData, domainNestedData,
   scaleValue, yAxis, yScale, yDomain, width, height, margin, dataArray) {
   const sameDomainData = [];
@@ -779,6 +978,7 @@ function loadFlickrData(dataArray, tagsArray, tagsDateArray) {
           } else {
             dataArray.push({
               relatedTag: stringTag,
+              originalTag: tagsArray[i],
               frequency: 1,
               image: photos.media.m,
               date: tagsDateArray[i],
@@ -833,6 +1033,7 @@ function loadInstagramData (token) {
 }
 
 // Main function to execute this code
+
 function main() {
   loadInstagramData(json.pierre_petillon);
 }
