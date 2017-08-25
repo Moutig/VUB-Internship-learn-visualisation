@@ -450,10 +450,13 @@ function zoomEventPic(height, width, margin) {
     .scaleExtent([0.5, 5])
     .on('zoom', zoomed);
 
-  // Function used to zoom out after a click on an active circle
+  // Function used to zoom out after a click on an active image
   function reset() {
     active.classed('active', false);
     active = d3.select(null);
+    d3.select('#main_svg').transition()
+      .duration(1000)
+      .call(zoom.transform, d3.zoomIdentity);
   }
 
   // Several actions relative to click event
@@ -540,7 +543,7 @@ function addSmallPicture(nestedData, domainNestedData, width, yScale, scaleValue
   const collide = d3collide(() => {
     return [[-imageWidth, -imageHeight], [imageWidth, imageHeight]];
   })
-    .strength(0.3)
+    .strength(0.1)
     .iterations(5);
 
   const concatRadialData = [];
